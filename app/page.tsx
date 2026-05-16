@@ -204,7 +204,7 @@ export default function GSLawDashboard() {
       )}
 
       {/* BẢNG DANH SÁCH */}
-      <div className="bg-white rounded-xl shadow-sm border">
+      <div className="bg-white rounded-xl shadow-sm border" style={{ overflowX: "auto" }}>
         <Table>
           <TableHeader>
             <TableRow>

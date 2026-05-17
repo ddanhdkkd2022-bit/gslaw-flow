@@ -21,7 +21,7 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
         }
       } else {
         setIsAuthenticated(false);
-        if (pathname !== "/login") {
+        if (pathname !== "/login" && !pathname.startsWith("/tracking")) {
           router.replace("/login");
         }
       }
@@ -39,7 +39,7 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
         }
       } else {
         setIsAuthenticated(false);
-        if (pathname !== "/login") {
+        if (pathname !== "/login" && !pathname.startsWith("/tracking")) {
           router.replace("/login");
         }
       }
@@ -61,7 +61,7 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
   }
 
   // If not authenticated and not on login page, don't render children to prevent flash
-  if (!isAuthenticated && pathname !== "/login") {
+  if (!isAuthenticated && pathname !== "/login" && !pathname.startsWith("/tracking")) {
     return null; 
   }
 

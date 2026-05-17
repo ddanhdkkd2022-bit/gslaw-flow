@@ -62,6 +62,7 @@ export default function ProjectDetail({ params }: { params: Promise<{ id: string
   const [notes, setNotes] = useState<Note[]>([]);
   const [files, setFiles] = useState<StorageFile[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [taskFetchError, setTaskFetchError] = useState<string | null>(null);
   
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -105,9 +106,11 @@ export default function ProjectDetail({ params }: { params: Promise<{ id: string
       .from("tasks").select("*").eq("project_id", id).order("created_at", { ascending: true });
     
     if (tasksError) {
-      if (tasksError.code === "42P01") console.warn("Table tasks does not exist yet.");
-      else console.error("Tasks error:", tasksError);
-    } else setTasks(tasksData || []);
+      setTaskFetchError(tasksError.message || JSON.stringify(tasksError));
+    } else {
+      setTasks(tasksData || []);
+      setTaskFetchError(null);
+    }
 
     // 4. Files
     fetchFiles();
@@ -184,12 +187,14 @@ export default function ProjectDetail({ params }: { params: Promise<{ id: string
 
   async function toggleTask(taskId: string, current: boolean) {
     const { error } = await supabase.from("tasks").update({ is_completed: !current }).eq("id", taskId);
-    if (!error) setTasks(prev => prev.map(t => t.id === taskId ? { ...t, is_completed: !current } : t));
+    if (error) toast.error("Lỗi cập nhật", { description: error.message });
+    else setTasks(prev => prev.map(t => t.id === taskId ? { ...t, is_completed: !current } : t));
   }
 
   async function deleteTask(taskId: string) {
     const { error } = await supabase.from("tasks").delete().eq("id", taskId);
-    if (!error) setTasks(prev => prev.filter(t => t.id !== taskId));
+    if (error) toast.error("Lỗi khi xóa", { description: error.message });
+    else setTasks(prev => prev.filter(t => t.id !== taskId));
   }
 
   /* ─── Client Portal Link ─── */
@@ -277,37 +282,47 @@ export default function ProjectDetail({ params }: { params: Promise<{ id: string
                 <CheckSquare size={18} color="#1d4ed8" />
                 <h2 style={{ fontSize: 16, fontWeight: 700, color: "#0f172a", margin: 0 }}>Checklist Công việc</h2>
               </div>
-              {tasks.length > 0 && <div style={{ fontSize: 12, fontWeight: 700, color: "#1d4ed8", background: "#eff6ff", padding: "4px 10px", borderRadius: 12 }}>{progressPercent}% Hoàn thành</div>}
+              {!taskFetchError && tasks.length > 0 && <div style={{ fontSize: 12, fontWeight: 700, color: "#1d4ed8", background: "#eff6ff", padding: "4px 10px", borderRadius: 12 }}>{progressPercent}% Hoàn thành</div>}
             </div>
             
-            {tasks.length > 0 && (
-              <div style={{ padding: "0 20px" }}>
-                <div style={{ height: 6, background: "#f1f5f9", borderRadius: 3, marginTop: 16, overflow: "hidden" }}>
-                  <div style={{ height: "100%", background: progressPercent === 100 ? "#10b981" : "#3b82f6", width: `${progressPercent}%`, transition: "width 0.3s ease" }} />
-                </div>
+            {taskFetchError ? (
+              <div style={{ padding: "30px 20px", textAlign: "center", color: "#64748b", fontSize: 13 }}>
+                <AlertCircle size={24} color="#dc2626" style={{ margin: "0 auto 10px" }} />
+                Chưa thể tải danh sách công việc.<br/>
+                <span style={{ fontSize: 11, color: "#94a3b8" }}>Lỗi: {taskFetchError}</span>
               </div>
-            )}
-
-            <div style={{ padding: "20px" }}>
-              <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
-                {tasks.map(task => (
-                  <div key={task.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", background: task.is_completed ? "#f8fafc" : "#fff", border: "1px solid #e2e8f0", borderRadius: 8 }}>
-                    <label style={{ display: "flex", alignItems: "center", gap: 12, cursor: "pointer", flex: 1 }}>
-                      <div onClick={() => toggleTask(task.id, task.is_completed)} style={{ width: 20, height: 20, borderRadius: 6, border: task.is_completed ? "none" : "2px solid #cbd5e1", background: task.is_completed ? "#10b981" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.2s" }}>
-                        {task.is_completed && <Check size={14} color="#fff" strokeWidth={3} />}
-                      </div>
-                      <span style={{ fontSize: 14, color: task.is_completed ? "#94a3b8" : "#0f172a", textDecoration: task.is_completed ? "line-through" : "none", fontWeight: 500, transition: "all 0.2s" }}>{task.task_name}</span>
-                    </label>
-                    <button className="hide-on-print" onClick={() => deleteTask(task.id)} style={{ background: "none", border: "none", color: "#ef4444", cursor: "pointer", padding: 4 }}><Trash2 size={14} /></button>
+            ) : (
+              <>
+                {tasks.length > 0 && (
+                  <div style={{ padding: "0 20px" }}>
+                    <div style={{ height: 6, background: "#f1f5f9", borderRadius: 3, marginTop: 16, overflow: "hidden" }}>
+                      <div style={{ height: "100%", background: progressPercent === 100 ? "#10b981" : "#3b82f6", width: `${progressPercent}%`, transition: "width 0.3s ease" }} />
+                    </div>
                   </div>
-                ))}
-              </div>
-              
-              <div className="hide-on-print" style={{ display: "flex", gap: 8 }}>
-                <input type="text" value={newTask} onChange={e=>setNewTask(e.target.value)} onKeyDown={e=>e.key==="Enter"&&handleAddTask()} placeholder="Thêm công việc mới..." style={{ flex: 1, padding: "8px 12px", fontSize: 13, border: "1.5px solid #e2e8f0", borderRadius: 8, outline: "none", transition: "border-color .15s" }} onFocus={e=>e.target.style.borderColor="#1d4ed8"} onBlur={e=>e.target.style.borderColor="#e2e8f0"} />
-                <button onClick={handleAddTask} disabled={addingTask || !newTask.trim()} style={{ background: "#1d4ed8", color: "#fff", border: "none", borderRadius: 8, padding: "0 16px", fontWeight: 600, fontSize: 13, cursor: "pointer" }}><Plus size={16}/></button>
-              </div>
-            </div>
+                )}
+
+                <div style={{ padding: "20px" }}>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
+                    {tasks.map(task => (
+                      <div key={task.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", background: task.is_completed ? "#f8fafc" : "#fff", border: "1px solid #e2e8f0", borderRadius: 8 }}>
+                        <label style={{ display: "flex", alignItems: "center", gap: 12, cursor: "pointer", flex: 1 }}>
+                          <div onClick={() => toggleTask(task.id, task.is_completed)} style={{ width: 20, height: 20, borderRadius: 6, border: task.is_completed ? "none" : "2px solid #cbd5e1", background: task.is_completed ? "#10b981" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.2s" }}>
+                            {task.is_completed && <Check size={14} color="#fff" strokeWidth={3} />}
+                          </div>
+                          <span style={{ fontSize: 14, color: task.is_completed ? "#94a3b8" : "#0f172a", textDecoration: task.is_completed ? "line-through" : "none", fontWeight: 500, transition: "all 0.2s" }}>{task.task_name}</span>
+                        </label>
+                        <button className="hide-on-print" onClick={() => deleteTask(task.id)} style={{ background: "none", border: "none", color: "#ef4444", cursor: "pointer", padding: 4 }}><Trash2 size={14} /></button>
+                      </div>
+                    ))}
+                  </div>
+                  
+                  <div className="hide-on-print" style={{ display: "flex", gap: 8 }}>
+                    <input type="text" value={newTask} onChange={e=>setNewTask(e.target.value)} onKeyDown={e=>e.key==="Enter"&&handleAddTask()} placeholder="Thêm công việc mới..." style={{ flex: 1, padding: "8px 12px", fontSize: 13, border: "1.5px solid #e2e8f0", borderRadius: 8, outline: "none", transition: "border-color .15s" }} onFocus={e=>e.target.style.borderColor="#1d4ed8"} onBlur={e=>e.target.style.borderColor="#e2e8f0"} />
+                    <button onClick={handleAddTask} disabled={addingTask || !newTask.trim()} style={{ background: "#1d4ed8", color: "#fff", border: "none", borderRadius: 8, padding: "0 16px", fontWeight: 600, fontSize: 13, cursor: "pointer" }}><Plus size={16}/></button>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
 
           {/* ATTACHMENTS */}

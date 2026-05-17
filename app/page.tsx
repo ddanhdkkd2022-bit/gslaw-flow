@@ -9,6 +9,9 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, Legend } from "recharts";
+import Header from "@/components/Header";
+import { useAuth } from "@/components/AuthProvider";
+import { logActivity } from "@/lib/logger";
 
 /* ─── Types ─────────────────────────────────────────── */
 interface HoSo {
@@ -88,6 +91,7 @@ function StatCard({ label, value, icon: Icon, accent }: {
 
 /* ─── Main Page ─────────────────────────────────────── */
 export default function GSLawDashboard() {
+  const { profile, isAdmin, user } = useAuth();
   const [hoso, setHoso]       = useState<HoSo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState<string | null>(null);
@@ -133,6 +137,7 @@ export default function GSLawDashboard() {
       else toast.error("Lỗi khi thêm hồ sơ", { description: error.message });
     } else { 
       toast.success("Thêm hồ sơ thành công!");
+      if (user && profile) await logActivity(user.id, profile.display_name || "Nhân viên", "đã thêm hồ sơ mới", tenKhach.trim());
       setTenKhach(""); setDichVu(""); setNguoiGioiThieu(""); setSoTien(""); setHanChot("");
       await fetchData(); 
     }
@@ -141,10 +146,15 @@ export default function GSLawDashboard() {
 
   /* delete */
   async function handleDelete(id: string | number, name: string) {
+    if (!isAdmin) return;
     if (!confirm(`Xóa hồ sơ "${name}"?\nHành động này không thể hoàn tác.`)) return;
     const { error } = await supabase.from("projects").delete().eq("id", id);
     if (error) toast.error("Lỗi khi xóa", { description: error.message });
-    else { toast.success("Đã xóa hồ sơ " + name); await fetchData(); }
+    else { 
+      toast.success("Đã xóa hồ sơ " + name); 
+      if (user && profile) await logActivity(user.id, profile.display_name || "Admin", "đã xóa hồ sơ", name);
+      await fetchData(); 
+    }
   }
 
   /* status update */
@@ -153,14 +163,12 @@ export default function GSLawDashboard() {
     if (error) toast.error("Lỗi cập nhật trạng thái", { description: error.message });
     else {
       toast.success("Đã cập nhật trạng thái thành: " + val);
+      if (user && profile) await logActivity(user.id, profile.display_name || "Nhân viên", "đã cập nhật trạng thái thành " + val, "Hồ sơ ID: " + id);
       setHoso(prev => prev.map(h => h.id === id ? { ...h, status: val } : h));
     }
   }
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    toast.info("Đã đăng xuất");
-  };
+
 
   /* computed filters */
   const filtered = useMemo(() => {
@@ -202,22 +210,7 @@ export default function GSLawDashboard() {
   return (
     <div style={{ minHeight: "100vh", background: "#f1f5f9", fontFamily: "'Inter', 'Segoe UI', sans-serif" }}>
 
-      {/* ── HEADER ── */}
-      <header style={{
-        background: "linear-gradient(135deg, #0f2044 0%, #1e3a6e 100%)", padding: "0 32px",
-        display: "flex", alignItems: "center", justifyContent: "space-between", height: 64, boxShadow: "0 2px 12px rgba(0,0,0,.18)",
-      }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <Scale size={24} color="#60a5fa" strokeWidth={2} />
-          <span style={{ fontSize: 18, fontWeight: 700, color: "#fff", letterSpacing: ".3px" }}>GSLaw Flow</span>
-        </div>
-        <button onClick={handleLogout} title="Đăng xuất" style={{
-          background: "rgba(255,255,255,0.1)", border: "none", color: "#fff", padding: "8px 12px", borderRadius: 8, display: "flex", alignItems: "center", gap: 6,
-          fontSize: 13, fontWeight: 600, cursor: "pointer", transition: "background 0.2s"
-        }}>
-          <LogOut size={15} /> <span style={{ display: "none" }}>Đăng xuất</span>
-        </button>
-      </header>
+      <Header title="GSLaw Flow" showActions={true} />
 
       <main style={{ maxWidth: 1400, margin: "0 auto", padding: "32px 24px", display: "flex", flexDirection: "column", gap: 24 }}>
 
@@ -225,7 +218,7 @@ export default function GSLawDashboard() {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 16 }}>
           <StatCard label="Tổng hồ sơ hiển thị" value={filtered.length}          icon={Briefcase}  accent="#1d4ed8" />
           <StatCard label="Đang xử lý"        value={dangXuLy}             icon={Clock}      accent="#d97706" />
-          <StatCard label="Doanh thu dự kiến" value={formatVND(totalDoanhThu)} icon={Wallet} accent="#059669" />
+          {isAdmin && <StatCard label="Doanh thu dự kiến" value={formatVND(totalDoanhThu)} icon={Wallet} accent="#059669" />}
           <StatCard label="Hoàn thành"        value={filtered.filter(h=>h.status==="Hoàn thành").length} icon={TrendingUp} accent="#7c3aed" />
         </div>
 
@@ -339,7 +332,7 @@ export default function GSLawDashboard() {
                           <td style={{ padding: "13px 16px", textAlign: "right", fontWeight: 600, color: "#059669", whiteSpace: "nowrap" }}>{item.total_amount ? formatVND(Number(item.total_amount)) : "—"}</td>
                           <td style={{ padding: "13px 16px", textAlign: "center", display: "flex", gap: 8, justifyContent: "center" }} onClick={e => e.stopPropagation()}>
                             <button onClick={() => router.push(`/project/${item.id}`)} title="Xem" style={btnStyle("#eff6ff", "#bfdbfe", "#1d4ed8")}><Eye size={13} /></button>
-                            <button onClick={() => handleDelete(item.id, item.customer_name)} title="Xóa" style={btnStyle("#fff1f2", "#fecdd3", "#e11d48")}><Trash2 size={13} /></button>
+                            {isAdmin && <button onClick={() => handleDelete(item.id, item.customer_name)} title="Xóa" style={btnStyle("#fff1f2", "#fecdd3", "#e11d48")}><Trash2 size={13} /></button>}
                           </td>
                         </tr>
                       );

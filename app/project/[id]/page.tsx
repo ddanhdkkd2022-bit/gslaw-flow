@@ -7,9 +7,12 @@ import {
   ArrowLeft, Briefcase, Calendar, User, Wallet, 
   MessageSquare, Plus, Clock, AlertCircle, LogOut,
   FileText, Download, Trash2, UploadCloud, Loader2,
-  CheckSquare, Check, Link as LinkIcon, Printer
+  CheckSquare, Check, Link as LinkIcon, Printer, CreditCard
 } from "lucide-react";
 import { toast } from "sonner";
+import Header from "@/components/Header";
+import { useAuth } from "@/components/AuthProvider";
+import { logActivity } from "@/lib/logger";
 
 interface Project {
   id: string;
@@ -22,24 +25,10 @@ interface Project {
   share_token: string | null;
 }
 
-interface Note {
-  id: string;
-  note_content: string;
-  created_at: string;
-}
-
-interface StorageFile {
-  name: string;
-  id: string | null;
-  updated_at: string | null;
-  metadata: any;
-}
-
-interface Task {
-  id: string;
-  task_name: string;
-  is_completed: boolean;
-}
+interface Note { id: string; note_content: string; created_at: string; }
+interface StorageFile { name: string; id: string | null; updated_at: string | null; metadata: any; }
+interface Task { id: string; task_name: string; is_completed: boolean; }
+interface Payment { id: string; amount: number; note: string | null; created_at: string; }
 
 function formatVND(n: number) { return n.toLocaleString("vi-VN") + "đ"; }
 function formatDateTime(iso: string | null) {
@@ -57,72 +46,63 @@ export default function ProjectDetail({ params }: { params: Promise<{ id: string
   const router = useRouter();
   const unwrappedParams = use(params);
   const id = unwrappedParams.id;
+  const { profile, isAdmin, user } = useAuth();
 
   const [project, setProject] = useState<Project | null>(null);
   const [notes, setNotes] = useState<Note[]>([]);
   const [files, setFiles] = useState<StorageFile[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [taskFetchError, setTaskFetchError] = useState<string | null>(null);
+  const [payments, setPayments] = useState<Payment[]>([]);
+  const [settings, setSettings] = useState<any>(null);
   
+  const [taskFetchError, setTaskFetchError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
   const [newNote, setNewNote] = useState("");
   const [addingNote, setAddingNote] = useState(false);
   const [uploading, setUploading] = useState(false);
-  
   const [newTask, setNewTask] = useState("");
   const [addingTask, setAddingTask] = useState(false);
-
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    toast.info("Đã đăng xuất");
-  };
+  
+  const [newPaymentAmount, setNewPaymentAmount] = useState("");
+  const [newPaymentNote, setNewPaymentNote] = useState("");
+  const [addingPayment, setAddingPayment] = useState(false);
 
   async function fetchDetails() {
     setLoading(true);
     // 1. Dự án
-    const { data: projData, error: projError } = await supabase
-      .from("projects").select("*").eq("id", id).single();
-
-    if (projError) {
-      setError("Không tìm thấy hồ sơ hoặc có lỗi xảy ra.");
-      setLoading(false); return;
-    }
+    const { data: projData, error: projError } = await supabase.from("projects").select("*").eq("id", id).single();
+    if (projError) { setError("Không tìm thấy hồ sơ hoặc có lỗi xảy ra."); setLoading(false); return; }
     setProject(projData);
 
     // 2. Ghi chú
-    const { data: notesData, error: notesError } = await supabase
-      .from("project_notes").select("*").eq("project_id", id).order("created_at", { ascending: false });
-
-    if (notesError) {
-      if (notesError.code === "PGRST205" || notesError.code === "42P01") {
-         setError("⚠️ LỖI: Bảng 'project_notes' chưa được tạo.");
-      } else setError("Lỗi khi tải ghi chú: " + notesError.message);
-    } else setNotes(notesData || []);
+    const { data: notesData } = await supabase.from("project_notes").select("*").eq("project_id", id).order("created_at", { ascending: false });
+    if (notesData) setNotes(notesData);
 
     // 3. Tasks
-    const { data: tasksData, error: tasksError } = await supabase
-      .from("tasks").select("*").eq("project_id", id).order("created_at", { ascending: true });
-    
-    if (tasksError) {
-      setTaskFetchError(tasksError.message || JSON.stringify(tasksError));
-    } else {
-      setTasks(tasksData || []);
-      setTaskFetchError(null);
-    }
+    const { data: tasksData, error: tasksError } = await supabase.from("tasks").select("*").eq("project_id", id).order("created_at", { ascending: true });
+    if (tasksError) setTaskFetchError(tasksError.message || JSON.stringify(tasksError));
+    else { setTasks(tasksData || []); setTaskFetchError(null); }
 
-    // 4. Files
+    // 4. Payments
+    const { data: paymentsData, error: payError } = await supabase.from("payments").select("*").eq("project_id", id).order("created_at", { ascending: true });
+    if (payError && payError.code !== "42P01") console.error(payError);
+    if (paymentsData) setPayments(paymentsData);
+
+    // 5. Files
     fetchFiles();
+
+    // 6. Settings (for PDF)
+    const { data: setts } = await supabase.from("settings").select("*").limit(1).single();
+    if (setts) setSettings(setts);
 
     setLoading(false);
   }
 
   async function fetchFiles() {
-    const { data, error } = await supabase.storage.from('project-documents').list(id);
-    if (error) {
-      if (error.message.includes("Bucket not found")) toast.warning("Bucket 'project-documents' chưa được tạo.");
-    } else setFiles((data || []).filter(f => f.name !== ".emptyFolderPlaceholder"));
+    const { data } = await supabase.storage.from('project-documents').list(id);
+    if (data) setFiles(data.filter(f => f.name !== ".emptyFolderPlaceholder"));
   }
 
   useEffect(() => { if (id) fetchDetails(); }, [id]);
@@ -135,6 +115,7 @@ export default function ProjectDetail({ params }: { params: Promise<{ id: string
     if (error) toast.error("Lỗi thêm ghi chú", { description: error.message });
     else {
       toast.success("Đã lưu ghi chú!"); setNewNote("");
+      if (user && profile) await logActivity(user.id, profile.display_name || "User", "đã thêm ghi chú", "Hồ sơ: " + project?.customer_name);
       const { data } = await supabase.from("project_notes").select("*").eq("project_id", id).order("created_at", { ascending: false });
       if (data) setNotes(data);
     }
@@ -148,7 +129,11 @@ export default function ProjectDetail({ params }: { params: Promise<{ id: string
     setUploading(true);
     const { error } = await supabase.storage.from('project-documents').upload(`${id}/${file.name}`, file, { upsert: true });
     if (error) toast.error("Lỗi tải lên", { description: error.message });
-    else { toast.success("Tải file lên thành công!"); fetchFiles(); }
+    else { 
+      toast.success("Tải file lên thành công!"); 
+      if (user && profile) await logActivity(user.id, profile.display_name || "User", "đã tải lên tài liệu", file.name);
+      fetchFiles(); 
+    }
     setUploading(false); e.target.value = '';
   }
 
@@ -156,17 +141,21 @@ export default function ProjectDetail({ params }: { params: Promise<{ id: string
     const { data, error } = await supabase.storage.from('project-documents').createSignedUrl(`${id}/${fileName}`, 60);
     if (error) toast.error("Lỗi tải file", { description: error.message });
     else if (data?.signedUrl) {
-      const link = document.createElement('a');
-      link.href = data.signedUrl; link.target = "_blank"; link.download = fileName;
+      const link = document.createElement('a'); link.href = data.signedUrl; link.target = "_blank"; link.download = fileName;
       document.body.appendChild(link); link.click(); document.body.removeChild(link);
     }
   }
 
   async function handleDeleteFile(fileName: string) {
+    if (!isAdmin) return;
     if (!confirm(`Xóa file "${fileName}"?`)) return;
     const { error } = await supabase.storage.from('project-documents').remove([`${id}/${fileName}`]);
     if (error) toast.error("Lỗi khi xóa file", { description: error.message });
-    else { toast.success("Đã xóa file!"); fetchFiles(); }
+    else { 
+      toast.success("Đã xóa file!"); 
+      if (user && profile) await logActivity(user.id, profile.display_name || "Admin", "đã xóa tài liệu", fileName);
+      fetchFiles(); 
+    }
   }
 
   /* ─── Tasks ─── */
@@ -174,10 +163,8 @@ export default function ProjectDetail({ params }: { params: Promise<{ id: string
     if (!newTask.trim()) return;
     setAddingTask(true);
     const { error } = await supabase.from("tasks").insert([{ project_id: id, task_name: newTask.trim() }]);
-    if (error) {
-      if (error.code === "42P01") toast.error("Lỗi", { description: "Bảng 'tasks' chưa được tạo. Hãy chạy lệnh SQL." });
-      else toast.error("Lỗi thêm công việc", { description: error.message });
-    } else {
+    if (error) toast.error("Lỗi thêm công việc", { description: error.message });
+    else {
       setNewTask("");
       const { data } = await supabase.from("tasks").select("*").eq("project_id", id).order("created_at", { ascending: true });
       if (data) setTasks(data);
@@ -192,9 +179,39 @@ export default function ProjectDetail({ params }: { params: Promise<{ id: string
   }
 
   async function deleteTask(taskId: string) {
+    if (!isAdmin) return;
     const { error } = await supabase.from("tasks").delete().eq("id", taskId);
     if (error) toast.error("Lỗi khi xóa", { description: error.message });
     else setTasks(prev => prev.filter(t => t.id !== taskId));
+  }
+
+  /* ─── Payments ─── */
+  async function handleAddPayment() {
+    if (!newPaymentAmount || isNaN(Number(newPaymentAmount))) return;
+    setAddingPayment(true);
+    const amt = Number(newPaymentAmount);
+    const { error } = await supabase.from("payments").insert([{ project_id: id, amount: amt, note: newPaymentNote }]);
+    if (error) {
+      if (error.code === "42P01") toast.error("Lỗi", { description: "Bảng 'payments' chưa tạo. Chạy lệnh SQL!" });
+      else toast.error("Lỗi thanh toán", { description: error.message });
+    } else {
+      toast.success("Đã ghi nhận thanh toán!");
+      if (user && profile) await logActivity(user.id, profile.display_name || "User", "đã ghi nhận thanh toán", formatVND(amt));
+      setNewPaymentAmount(""); setNewPaymentNote("");
+      const { data } = await supabase.from("payments").select("*").eq("project_id", id).order("created_at", { ascending: true });
+      if (data) setPayments(data);
+    }
+    setAddingPayment(false);
+  }
+
+  async function handleDeletePayment(payId: string, amt: number) {
+    if (!isAdmin) return;
+    const { error } = await supabase.from("payments").delete().eq("id", payId);
+    if (!error) {
+      toast.success("Đã xóa đợt thanh toán");
+      if (user && profile) await logActivity(user.id, profile.display_name || "Admin", "đã xóa thanh toán", formatVND(amt));
+      setPayments(prev => prev.filter(p => p.id !== payId));
+    }
   }
 
   /* ─── Client Portal Link ─── */
@@ -203,7 +220,7 @@ export default function ProjectDetail({ params }: { params: Promise<{ id: string
     if (!token) {
       token = crypto.randomUUID();
       const { error } = await supabase.from("projects").update({ share_token: token }).eq("id", id);
-      if (error) { toast.error("Lỗi", { description: "Chưa thêm cột share_token. Hãy chạy SQL." }); return; }
+      if (error) { toast.error("Lỗi", { description: "Chưa thêm cột share_token." }); return; }
       setProject(prev => prev ? { ...prev, share_token: token as string } : null);
     }
     const link = `${window.location.origin}/tracking/${token}`;
@@ -225,32 +242,33 @@ export default function ProjectDetail({ params }: { params: Promise<{ id: string
   const completedTasks = tasks.filter(t => t.is_completed).length;
   const progressPercent = tasks.length > 0 ? Math.round((completedTasks / tasks.length) * 100) : 0;
 
+  const totalPaid = payments.reduce((acc, p) => acc + p.amount, 0);
+  const totalAmount = project?.total_amount || 0;
+  const debt = totalAmount - totalPaid;
+
+  const extraLeft = <button onClick={() => router.push("/")} style={btnNavStyle}><ArrowLeft size={18} /></button>;
+  const extraRight = (
+    <>
+      <button onClick={handleGenerateLink} title="Chia sẻ khách hàng" style={{ ...btnNavStyle, background: "#3b82f6" }}>
+        <LinkIcon size={15} /> Tracking
+      </button>
+      <button onClick={() => window.print()} title="In PDF" style={btnNavStyle}>
+        <Printer size={15} /> In Báo Cáo
+      </button>
+    </>
+  );
+
   return (
     <div className="print-wrapper" style={{ minHeight: "100vh", background: "#f1f5f9", fontFamily: "'Inter', 'Segoe UI', sans-serif" }}>
-      {/* ── HEADER ── */}
-      <header className="hide-on-print" style={{
-        background: "linear-gradient(135deg, #0f2044 0%, #1e3a6e 100%)", padding: "0 32px",
-        display: "flex", alignItems: "center", justifyContent: "space-between", height: 64, boxShadow: "0 2px 12px rgba(0,0,0,.18)",
-      }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          <button onClick={() => router.push("/")} style={btnNavStyle}><ArrowLeft size={18} /></button>
-          <span style={{ fontSize: 18, fontWeight: 700, color: "#fff", letterSpacing: ".3px" }}>Chi tiết Hồ sơ</span>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <button onClick={handleGenerateLink} title="Chia sẻ khách hàng" style={{ ...btnNavStyle, background: "#3b82f6" }}>
-            <LinkIcon size={15} /> Tạo Link Tracking
-          </button>
-          <button onClick={() => window.print()} title="In PDF" style={btnNavStyle}>
-            <Printer size={15} /> In Báo Cáo
-          </button>
-          <button onClick={handleLogout} title="Đăng xuất" style={btnNavStyle}><LogOut size={15} /></button>
-        </div>
-      </header>
+      
+      <Header title="Chi tiết Hồ sơ" showActions={true} extraLeft={extraLeft} extraRight={extraRight} />
 
       {/* PRINT HEADER */}
       <div className="show-on-print" style={{ padding: "40px 40px 0 40px", display: "none", textAlign: "center" }}>
-        <h1 style={{ fontSize: 28, color: "#0f2044", marginBottom: 8 }}>GSLaw Flow</h1>
-        <div style={{ fontSize: 18, color: "#64748b", fontWeight: 600 }}>BÁO CÁO TIẾN ĐỘ HỒ SƠ</div>
+        <h1 style={{ fontSize: 24, color: "#0f2044", marginBottom: 8 }}>{settings?.company_name || "GSLaw Flow"}</h1>
+        <div style={{ fontSize: 13, color: "#475569" }}>{settings?.company_address || ""}</div>
+        <div style={{ fontSize: 13, color: "#475569", marginBottom: 16 }}>{settings?.tax_id ? `MST: ${settings.tax_id}` : ""}</div>
+        <div style={{ fontSize: 18, color: "#0f2044", fontWeight: 700, marginTop: 24 }}>BÁO CÁO TIẾN ĐỘ HỒ SƠ</div>
       </div>
 
       <main style={{ maxWidth: 1100, margin: "0 auto", padding: "32px 24px", display: "grid", gridTemplateColumns: "1fr 380px", gap: 24 }} className="print-main">
@@ -270,10 +288,47 @@ export default function ProjectDetail({ params }: { params: Promise<{ id: string
                 <InfoItem icon={Briefcase} label="Dịch vụ" value={project.service_type} />
                 <InfoItem icon={User} label="Người giới thiệu" value={project.partner_name} />
                 <InfoItem icon={Wallet} label="Phí dịch vụ" value={project.total_amount ? formatVND(project.total_amount) : null} isMoney />
-                <InfoItem icon={Calendar} label="Ngày tạo" value={project.created_at ? formatDateTime(project.created_at) : null} />
+                <InfoItem icon={Calendar} label="Ngày tạo" value={project.created_at ? formatDateTime(project.created_at).split(" - ")[1] : null} />
               </div>
             </div>
           )}
+
+          {/* PAYMENTS */}
+          <div style={{ background: "#fff", borderRadius: 16, border: "1px solid #e2e8f0", boxShadow: "0 4px 6px -1px rgba(0,0,0,.05)" }}>
+            <div style={{ padding: "20px", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <CreditCard size={18} color="#10b981" />
+                <h2 style={{ fontSize: 16, fontWeight: 700, color: "#0f172a", margin: 0 }}>Tiến độ thanh toán</h2>
+              </div>
+              <div style={{ display: "flex", gap: 12 }}>
+                <div style={{ textAlign: "right" }}><div style={{ fontSize: 11, color: "#64748b", fontWeight: 600 }}>ĐÃ THU</div><div style={{ fontSize: 14, fontWeight: 700, color: "#059669" }}>{formatVND(totalPaid)}</div></div>
+                <div style={{ textAlign: "right" }}><div style={{ fontSize: 11, color: "#64748b", fontWeight: 600 }}>CÔNG NỢ</div><div style={{ fontSize: 14, fontWeight: 700, color: debt > 0 ? "#dc2626" : "#64748b" }}>{formatVND(debt)}</div></div>
+              </div>
+            </div>
+            
+            <div style={{ padding: "20px" }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
+                {payments.length === 0 ? <div style={{ fontSize: 13, color: "#94a3b8", textAlign: "center" }}>Chưa có đợt thanh toán nào</div> : payments.map((p, i) => (
+                  <div key={p.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 8 }}>
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: "#0f172a" }}>Đợt {i+1}: {formatVND(p.amount)}</div>
+                      {p.note && <div style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>{p.note}</div>}
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                      <span style={{ fontSize: 11, color: "#94a3b8" }}>{formatDateTime(p.created_at).split(" - ")[1]}</span>
+                      {isAdmin && <button className="hide-on-print" onClick={() => handleDeletePayment(p.id, p.amount)} style={{ background: "none", border: "none", color: "#ef4444", cursor: "pointer", padding: 4 }}><Trash2 size={14} /></button>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              
+              <div className="hide-on-print" style={{ display: "flex", gap: 8 }}>
+                <input type="number" value={newPaymentAmount} onChange={e=>setNewPaymentAmount(e.target.value)} placeholder="Số tiền (đ)..." style={{ width: 140, padding: "8px 12px", fontSize: 13, border: "1.5px solid #e2e8f0", borderRadius: 8, outline: "none" }} />
+                <input type="text" value={newPaymentNote} onChange={e=>setNewPaymentNote(e.target.value)} placeholder="Ghi chú (Tạm ứng...)" style={{ flex: 1, padding: "8px 12px", fontSize: 13, border: "1.5px solid #e2e8f0", borderRadius: 8, outline: "none" }} onKeyDown={e=>e.key==="Enter"&&handleAddPayment()} />
+                <button onClick={handleAddPayment} disabled={addingPayment || !newPaymentAmount} style={{ background: "#10b981", color: "#fff", border: "none", borderRadius: 8, padding: "0 16px", fontWeight: 600, fontSize: 13, cursor: "pointer" }}>Thu tiền</button>
+              </div>
+            </div>
+          </div>
 
           {/* SUB-TASKS CHECKLIST */}
           <div style={{ background: "#fff", borderRadius: 16, border: "1px solid #e2e8f0", boxShadow: "0 4px 6px -1px rgba(0,0,0,.05)" }}>
@@ -311,7 +366,7 @@ export default function ProjectDetail({ params }: { params: Promise<{ id: string
                           </div>
                           <span style={{ fontSize: 14, color: task.is_completed ? "#94a3b8" : "#0f172a", textDecoration: task.is_completed ? "line-through" : "none", fontWeight: 500, transition: "all 0.2s" }}>{task.task_name}</span>
                         </label>
-                        <button className="hide-on-print" onClick={() => deleteTask(task.id)} style={{ background: "none", border: "none", color: "#ef4444", cursor: "pointer", padding: 4 }}><Trash2 size={14} /></button>
+                        {isAdmin && <button className="hide-on-print" onClick={() => deleteTask(task.id)} style={{ background: "none", border: "none", color: "#ef4444", cursor: "pointer", padding: 4 }}><Trash2 size={14} /></button>}
                       </div>
                     ))}
                   </div>
@@ -349,7 +404,7 @@ export default function ProjectDetail({ params }: { params: Promise<{ id: string
                       </div>
                       <div style={{ display: "flex", gap: 8 }}>
                         <button onClick={() => handleDownload(f.name)} style={actionBtnStyle("#f0fdf4", "#bbf7d0", "#166534")}><Download size={14}/></button>
-                        <button onClick={() => handleDeleteFile(f.name)} style={actionBtnStyle("#fff1f2", "#fecdd3", "#e11d48")}><Trash2 size={14}/></button>
+                        {isAdmin && <button onClick={() => handleDeleteFile(f.name)} style={actionBtnStyle("#fff1f2", "#fecdd3", "#e11d48")}><Trash2 size={14}/></button>}
                       </div>
                     </div>
                   ))}

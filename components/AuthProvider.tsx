@@ -28,57 +28,55 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
 
-  const fetchProfile = async (userId: string) => {
-    const { data } = await supabase.from("profiles").select("*").eq("id", userId).single();
-    if (data) {
-      setProfile(data);
-    } else {
-      // If profile doesn't exist (new user), create a default 'staff' profile
-      const newProfile = { id: userId, role: "staff" as const, display_name: "Nhân viên mới" };
-      await supabase.from("profiles").insert([newProfile]);
-      setProfile(newProfile);
-    }
-  };
-
   useEffect(() => {
-    const checkUser = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (session) {
-        setIsAuthenticated(true);
-        setUser(session.user);
-        await fetchProfile(session.user.id);
-        if (pathname === "/login") router.replace("/");
-      } else {
-        setIsAuthenticated(false);
-        setUser(null);
-        setProfile(null);
-        if (pathname !== "/login" && !pathname.startsWith("/tracking")) {
-          router.replace("/login");
+    let active = true;
+
+    const handleAuth = async (session: any) => {
+      try {
+        if (session) {
+          setIsAuthenticated(true);
+          setUser(session.user);
+          
+          const userId = session.user.id;
+          const { data } = await supabase.from("profiles").select("*").eq("id", userId).single();
+          
+          if (active) {
+            if (data) {
+              setProfile(data);
+            } else {
+              const newProfile = { id: userId, role: "staff" as const, display_name: "Nhân viên mới" };
+              await supabase.from("profiles").upsert([newProfile]);
+              setProfile(newProfile);
+            }
+            if (pathname === "/login") {
+              router.replace("/");
+            }
+          }
+        } else {
+          setIsAuthenticated(false);
+          setUser(null);
+          setProfile(null);
+          if (active && pathname !== "/login" && !pathname.startsWith("/tracking")) {
+            router.replace("/login");
+          }
+        }
+      } catch (err) {
+        console.error("Auth error:", err);
+      } finally {
+        if (active) {
+          setLoading(false);
         }
       }
-      setLoading(false);
     };
 
-    checkUser();
-
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (session) {
-        setIsAuthenticated(true);
-        setUser(session.user);
-        await fetchProfile(session.user.id);
-        if (pathname === "/login") router.replace("/");
-      } else {
-        setIsAuthenticated(false);
-        setUser(null);
-        setProfile(null);
-        if (pathname !== "/login" && !pathname.startsWith("/tracking")) {
-          router.replace("/login");
-        }
-      }
+      await handleAuth(session);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      active = false;
+      subscription.unsubscribe();
+    };
   }, [pathname, router]);
 
   if (loading) {

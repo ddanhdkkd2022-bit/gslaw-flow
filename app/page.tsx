@@ -5,7 +5,7 @@ import { supabase } from "@/lib/supabase";
 import {
   Briefcase, Wallet, Clock, Search, Plus, Trash2,
   TrendingUp, AlertCircle, Eye, Download, Filter,
-  Calendar, LayoutGrid, List, X
+  Calendar as CalendarIcon, LayoutGrid, List, X
 } from "lucide-react";
 import { toast } from "sonner";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, Legend } from "recharts";
@@ -13,9 +13,24 @@ import Header from "@/components/Header";
 import { useAuth } from "@/components/AuthProvider";
 import { logActivity } from "@/lib/logger";
 
+// Calendar
+import { Calendar, dateFnsLocalizer, Event } from 'react-big-calendar';
+import { format, parse, startOfWeek, getDay } from 'date-fns';
+import { vi } from 'date-fns/locale';
+import 'react-big-calendar/lib/css/react-big-calendar.css';
+
+const locales = { "vi": vi };
+const localizer = dateFnsLocalizer({
+  format,
+  parse,
+  startOfWeek: () => startOfWeek(new Date(), { weekStartsOn: 1 }),
+  getDay,
+  locales,
+});
+
 /* ─── Types ─────────────────────────────────────────── */
 interface HoSo {
-  id: string | number;
+  id: string;
   customer_name: string;
   customer_phone?: string | null;
   priority?: string | null;
@@ -30,45 +45,48 @@ interface HoSo {
 
 /* ─── Status config ─────────────────────────────────── */
 const STATUS_OPTIONS = [
-  { value: "Đang chờ",   label: "Đang chờ",   bg: "#fffbeb", color: "#b45309", border: "#fcd34d" },
-  { value: "Đang soạn",  label: "Đang soạn",  bg: "#eff6ff", color: "#1d4ed8", border: "#93c5fd" },
-  { value: "Đang nộp",   label: "Đang nộp",   bg: "#f0f9ff", color: "#0369a1", border: "#7dd3fc" },
-  { value: "Hoàn thành", label: "Hoàn thành", bg: "#f0fdf4", color: "#15803d", border: "#86efac" },
+  { value: "Đang chờ",   label: "Đang chờ" },
+  { value: "Đang soạn",  label: "Đang soạn" },
+  { value: "Đang nộp",   label: "Đang nộp" },
+  { value: "Hoàn thành", label: "Hoàn thành" },
 ];
 
-function getStatus(val: string | null) {
-  return STATUS_OPTIONS.find(s => s.value === val) ?? { bg: "#f8fafc", color: "#64748b", border: "#e2e8f0", label: val ?? "—" };
+function getStatusStyle(val: string | null) {
+  switch (val) {
+    case "Đang chờ": return "bg-amber-50 text-amber-700 border-amber-300 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20";
+    case "Đang soạn": return "bg-blue-50 text-blue-700 border-blue-300 dark:bg-blue-500/10 dark:text-blue-400 dark:border-blue-500/20";
+    case "Đang nộp": return "bg-sky-50 text-sky-700 border-sky-300 dark:bg-sky-500/10 dark:text-sky-400 dark:border-sky-500/20";
+    case "Hoàn thành": return "bg-green-50 text-green-700 border-green-300 dark:bg-green-500/10 dark:text-green-400 dark:border-green-500/20";
+    default: return "bg-slate-50 text-slate-500 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700";
+  }
 }
 
 /* ─── Service Badge Config ─────────────────────────── */
 function getServiceBadgeStyle(val: string | null) {
-  if (!val) return { bg: "#f8fafc", color: "#475569", border: "#cbd5e1" };
+  if (!val) return "bg-slate-100 text-slate-600 border-slate-300 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700";
   const clean = val.trim().toLowerCase();
   if (clean.includes("thành lập") || clean.includes("doanh nghiệp") || clean.includes("giấy phép")) {
-    return { bg: "#eff6ff", color: "#1d4ed8", border: "#93c5fd" };
+    return "bg-blue-50 text-blue-700 border-blue-300 dark:bg-blue-500/10 dark:text-blue-400 dark:border-blue-500/20";
   }
   if (clean.includes("thuế") || clean.includes("kế toán") || clean.includes("báo cáo")) {
-    return { bg: "#f0fdf4", color: "#15803d", border: "#86efac" };
+    return "bg-green-50 text-green-700 border-green-300 dark:bg-green-500/10 dark:text-green-400 dark:border-green-500/20";
   }
   if (clean.includes("tranh chấp") || clean.includes("tố tụng") || clean.includes("tòa án")) {
-    return { bg: "#fff5f5", color: "#e11d48", border: "#fecdd3" };
+    return "bg-rose-50 text-rose-700 border-rose-300 dark:bg-rose-500/10 dark:text-rose-400 dark:border-rose-500/20";
   }
   if (clean.includes("sở hữu") || clean.includes("thương hiệu") || clean.includes("bản quyền")) {
-    return { bg: "#faf5ff", color: "#7e22ce", border: "#d8b4fe" };
+    return "bg-purple-50 text-purple-700 border-purple-300 dark:bg-purple-500/10 dark:text-purple-400 dark:border-purple-500/20";
   }
-  return { bg: "#f1f5f9", color: "#475569", border: "#cbd5e1" };
+  return "bg-slate-50 text-slate-600 border-slate-300 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700";
 }
 
 /* ─── Priority Badge Config ────────────────────────── */
 function getPriorityStyle(val: string | null) {
   switch (val) {
-    case "Gấp":
-      return { bg: "#fef2f2", color: "#ef4444", border: "#fca5a5" };
-    case "Trung bình":
-      return { bg: "#fffbeb", color: "#d97706", border: "#fcd34d" };
+    case "Gấp": return "bg-red-50 text-red-600 border-red-300 dark:bg-red-500/10 dark:text-red-400 dark:border-red-500/20";
+    case "Trung bình": return "bg-amber-50 text-amber-600 border-amber-300 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20";
     case "Thường":
-    default:
-      return { bg: "#f0fdf4", color: "#16a34a", border: "#bbf7d0" };
+    default: return "bg-emerald-50 text-emerald-600 border-emerald-300 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20";
   }
 }
 
@@ -80,7 +98,6 @@ function formatDate(iso: string | null) {
   return `${String(d.getDate()).padStart(2,"0")}/${String(d.getMonth()+1).padStart(2,"0")}/${d.getFullYear()}`;
 }
 
-// Hàm xuất CSV
 function downloadCSV(data: HoSo[]) {
   if (data.length === 0) return toast.info("Không có dữ liệu để xuất");
   const headers = ["Khách hàng", "Số điện thoại", "Dịch vụ", "Độ ưu tiên", "Người giới thiệu", "Trạng thái", "Giá trị", "Đã thanh toán", "Ngày tạo", "Hạn chót"];
@@ -109,20 +126,17 @@ function downloadCSV(data: HoSo[]) {
 }
 
 /* ─── Stat Card ─────────────────────────────────────── */
-function StatCard({ label, value, icon: Icon, accent }: {
-  label: string; value: string | number; icon: React.ElementType; accent: string;
+function StatCard({ label, value, icon: Icon, accentClass, bgClass }: {
+  label: string; value: string | number; icon: React.ElementType; accentClass: string; bgClass: string;
 }) {
   return (
-    <div style={{
-      background: "#fff", borderRadius: "14px", border: `1px solid #e2e8f0`, borderLeft: `4px solid ${accent}`,
-      padding: "20px 24px", display: "flex", alignItems: "center", gap: "16px", boxShadow: "0 1px 4px rgba(0,0,0,.06)",
-    }}>
-      <div style={{ width: 48, height: 48, borderRadius: "12px", background: accent + "18", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-        <Icon size={22} color={accent} strokeWidth={2} />
+    <div className={`bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 border-l-4 p-5 flex items-center gap-4 shadow-sm ${accentClass}`}>
+      <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${bgClass}`}>
+        <Icon size={22} className="opacity-80" strokeWidth={2} />
       </div>
       <div>
-        <div style={{ fontSize: 13, color: "#64748b", fontWeight: 500, marginBottom: 2 }}>{label}</div>
-        <div style={{ fontSize: 26, fontWeight: 700, color: "#0f172a", lineHeight: 1 }}>{value}</div>
+        <div className="text-sm text-slate-500 dark:text-slate-400 font-medium mb-1">{label}</div>
+        <div className="text-2xl font-bold text-slate-900 dark:text-slate-100 leading-none">{value}</div>
       </div>
     </div>
   );
@@ -137,7 +151,7 @@ export default function GSLawDashboard() {
   const [adding, setAdding]   = useState(false);
   const router = useRouter();
 
-  const [viewMode, setViewMode] = useState<"table" | "kanban">("table");
+  const [viewMode, setViewMode] = useState<"table" | "kanban" | "calendar">("table");
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
   /* form state */
@@ -166,7 +180,6 @@ export default function GSLawDashboard() {
       console.error(projError);
       setError(projError.message);
     } else {
-      // Map payments to projects
       const payMap: Record<string, number> = {};
       if (payData) {
         payData.forEach(p => {
@@ -267,7 +280,6 @@ export default function GSLawDashboard() {
   }, [filtered]);
   const COLORS = ['#fcd34d', '#93c5fd', '#7dd3fc', '#86efac', '#cbd5e1'];
 
-  /* Check deadline */
   const isWarning = (dueDate: string | null, status: string | null) => {
     if (!dueDate || status === "Hoàn thành") return false;
     const today = new Date().getTime();
@@ -275,89 +287,77 @@ export default function GSLawDashboard() {
     return (due - today) < 259200000;
   };
 
+  /* Calendar Events */
+  const calendarEvents = useMemo(() => {
+    return filtered.filter(h => h.due_date).map(h => ({
+      id: h.id,
+      title: `${h.customer_name} ${h.service_type ? `(${h.service_type})` : ''}`,
+      start: new Date(h.due_date!),
+      end: new Date(h.due_date!),
+      allDay: true,
+      resource: h
+    }));
+  }, [filtered]);
+
   /* ── Render ── */
   return (
-    <div style={{ minHeight: "100vh", background: "#f1f5f9", fontFamily: "'Inter', 'Segoe UI', sans-serif" }}>
-
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-900 font-sans transition-colors">
       <Header title="GSLaw Flow" showActions={true} />
 
-      <main style={{ maxWidth: 1400, margin: "0 auto", padding: "32px 24px", display: "flex", flexDirection: "column", gap: 24 }}>
+      <main className="max-w-[1400px] mx-auto p-6 md:p-8 flex flex-col gap-6">
 
         {/* ── STAT CARDS ── */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 16 }}>
-          <StatCard label="Tổng hồ sơ hiển thị" value={filtered.length}          icon={Briefcase}  accent="#1d4ed8" />
-          <StatCard label="Đang xử lý"        value={dangXuLy}             icon={Clock}      accent="#d97706" />
-          {isAdmin && <StatCard label="Doanh thu dự kiến" value={formatVND(totalDoanhThu)} icon={Wallet} accent="#059669" />}
-          <StatCard label="Hoàn thành"        value={filtered.filter(h=>h.status==="Hoàn thành").length} icon={TrendingUp} accent="#7c3aed" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <StatCard label="Tổng hồ sơ hiển thị" value={filtered.length} icon={Briefcase} accentClass="border-l-blue-600 dark:border-l-blue-500" bgClass="bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-500" />
+          <StatCard label="Đang xử lý" value={dangXuLy} icon={Clock} accentClass="border-l-amber-500 dark:border-l-amber-500" bgClass="bg-amber-50 dark:bg-amber-500/10 text-amber-500" />
+          {isAdmin && <StatCard label="Doanh thu dự kiến" value={formatVND(totalDoanhThu)} icon={Wallet} accentClass="border-l-emerald-600 dark:border-l-emerald-500" bgClass="bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-500" />}
+          <StatCard label="Hoàn thành" value={filtered.filter(h=>h.status==="Hoàn thành").length} icon={TrendingUp} accentClass="border-l-purple-600 dark:border-l-purple-500" bgClass="bg-purple-50 dark:bg-purple-500/10 text-purple-600 dark:text-purple-500" />
         </div>
 
-        {/* ── CHARTS ROW (FULL WIDTH OR CENTERED FOR PREMIUM LOOK) ── */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 24 }}>
-          <div style={{ background: "#fff", borderRadius: 14, border: "1px solid #e2e8f0", padding: "20px 24px", boxShadow: "0 1px 4px rgba(0,0,0,.06)" }}>
-            <div style={{ fontSize: 14, fontWeight: 700, color: "#0f172a", marginBottom: 14 }}>Thống kê Trạng thái Hồ sơ</div>
-            {chartData.length > 0 ? (
-              <div style={{ height: 200, width: "100%" }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie data={chartData} cx="50%" cy="50%" innerRadius={50} outerRadius={80} paddingAngle={5} dataKey="value">
-                      {chartData.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
-                    </Pie>
-                    <RechartsTooltip />
-                    <Legend iconType="circle" wrapperStyle={{ fontSize: 12 }} />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-            ) : <div style={{ textAlign: "center", color: "#94a3b8", fontSize: 13, marginTop: 40 }}>Không có dữ liệu thống kê</div>}
-          </div>
-        </div>
-
-        {/* ── CONTENT VIEW (TABLE OR KANBAN) ── */}
-        <div style={{ background: viewMode === "table" ? "#fff" : "transparent", borderRadius: viewMode === "table" ? 14 : 0, border: viewMode === "table" ? "1px solid #e2e8f0" : "none", boxShadow: viewMode === "table" ? "0 1px 4px rgba(0,0,0,.06)" : "none", overflow: "hidden" }}>
+        {/* ── CONTENT ── */}
+        <div className={`rounded-xl shadow-sm overflow-hidden ${viewMode === "table" ? "bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700" : ""}`}>
           
-          {/* Bộ lọc nâng cao & Button Thêm & Toggle View */}
-          <div style={{ padding: "16px 20px", borderBottom: viewMode === "table" ? "1px solid #f1f5f9" : "none", display: "flex", gap: 16, alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", background: viewMode === "table" ? "#f8fafc" : "transparent" }}>
+          {/* Controls Header */}
+          <div className="p-4 md:p-5 flex flex-wrap gap-4 items-center justify-between border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
             
-            <div style={{ display: "flex", gap: 12, alignItems: "center", flex: 1, minWidth: 280 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, background: "#fff", border: "1px solid #e2e8f0", borderRadius: 8, padding: "7px 12px", boxShadow: "0 1px 2px rgba(0,0,0,0.02)" }}>
-                <Search size={16} color="#94a3b8" />
-                <input placeholder="Tìm Tên khách hàng..." value={search} onChange={e=>setSearch(e.target.value)} style={{ border: "none", outline: "none", fontSize: 13, width: "100%", background: "transparent" }} />
+            <div className="flex gap-3 items-center flex-1 min-w-[280px]">
+              <div className="flex items-center gap-2 flex-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 shadow-sm focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500 transition-all">
+                <Search size={16} className="text-slate-400" />
+                <input placeholder="Tìm tên khách hàng... (Nhấn Ctrl+K)" value={search} onChange={e=>setSearch(e.target.value)} className="border-none outline-none text-sm w-full bg-transparent text-slate-900 dark:text-slate-100 placeholder-slate-400" />
               </div>
 
-              <button onClick={() => setIsAddModalOpen(true)} style={{ background: "linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%)", color: "#fff", border: "none", borderRadius: 8, padding: "8px 16px", fontSize: 13, fontWeight: 600, display: "flex", alignItems: "center", gap: 6, cursor: "pointer", boxShadow: "0 2px 8px rgba(29,78,216,.25)", whiteSpace: "nowrap", transition: "all 0.2s" }}>
-                <Plus size={16} /> Thêm hồ sơ mới
+              <button onClick={() => setIsAddModalOpen(true)} className="bg-gradient-to-br from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white border-none rounded-lg px-4 py-2 text-sm font-semibold flex items-center gap-2 cursor-pointer shadow-md shadow-blue-500/20 whitespace-nowrap transition-all">
+                <Plus size={16} /> Thêm hồ sơ
               </button>
             </div>
 
-            <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <Filter size={16} color="#64748b" />
-                <select value={filterStatus} onChange={e=>setFilterStatus(e.target.value)} style={selectStyle}>
-                  <option value="">Tất cả Trạng thái</option>
+            <div className="flex items-center gap-3 flex-wrap">
+              <div className="flex items-center gap-2">
+                <Filter size={16} className="text-slate-500" />
+                <select value={filterStatus} onChange={e=>setFilterStatus(e.target.value)} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5 text-sm outline-none text-slate-900 dark:text-slate-100">
+                  <option value="">Trạng thái</option>
                   {STATUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </select>
-                <select value={filterPartner} onChange={e=>setFilterPartner(e.target.value)} style={selectStyle}>
-                  <option value="">Tất cả Nguồn GT</option>
+                <select value={filterPartner} onChange={e=>setFilterPartner(e.target.value)} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5 text-sm outline-none text-slate-900 dark:text-slate-100 hidden md:block">
+                  <option value="">Nguồn GT</option>
                   {uniquePartners.map(p => <option key={p} value={p}>{p}</option>)}
                 </select>
-                <div style={{ display: "flex", alignItems: "center", gap: 4, background: "#fff", border: "1px solid #e2e8f0", borderRadius: 8, padding: "4px 8px" }}>
-                  <Calendar size={14} color="#64748b" />
-                  <input type="date" value={dateFrom} onChange={e=>setDateFrom(e.target.value)} style={{ border: "none", outline: "none", fontSize: 12 }} title="Từ ngày" />
-                  <span style={{ color: "#94a3b8" }}>-</span>
-                  <input type="date" value={dateTo} onChange={e=>setDateTo(e.target.value)} style={{ border: "none", outline: "none", fontSize: 12 }} title="Đến ngày" />
-                </div>
               </div>
 
-              <div style={{ display: "flex", alignItems: "center", gap: 12, borderLeft: "1px solid #cbd5e1", paddingLeft: 16 }}>
-                <div style={{ display: "flex", background: "#e2e8f0", borderRadius: 8, padding: 4 }}>
-                  <button onClick={() => setViewMode("table")} style={{ ...toggleBtnStyle, background: viewMode === "table" ? "#fff" : "transparent", color: viewMode === "table" ? "#0f172a" : "#64748b", boxShadow: viewMode === "table" ? "0 1px 3px rgba(0,0,0,0.1)" : "none" }}>
-                    <List size={16} /> Bảng
+              <div className="flex items-center gap-3 md:border-l border-slate-300 dark:border-slate-600 md:pl-4">
+                <div className="flex bg-slate-200 dark:bg-slate-700 rounded-lg p-1">
+                  <button onClick={() => setViewMode("table")} className={`rounded-md px-3 py-1.5 text-sm font-medium flex items-center gap-1.5 transition-all ${viewMode === "table" ? "bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 shadow-sm" : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"}`}>
+                    <List size={16} /> <span className="hidden sm:inline">Bảng</span>
                   </button>
-                  <button onClick={() => setViewMode("kanban")} style={{ ...toggleBtnStyle, background: viewMode === "kanban" ? "#fff" : "transparent", color: viewMode === "kanban" ? "#0f172a" : "#64748b", boxShadow: viewMode === "kanban" ? "0 1px 3px rgba(0,0,0,0.1)" : "none" }}>
-                    <LayoutGrid size={16} /> Kanban
+                  <button onClick={() => setViewMode("kanban")} className={`rounded-md px-3 py-1.5 text-sm font-medium flex items-center gap-1.5 transition-all ${viewMode === "kanban" ? "bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 shadow-sm" : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"}`}>
+                    <LayoutGrid size={16} /> <span className="hidden sm:inline">Kanban</span>
+                  </button>
+                  <button onClick={() => setViewMode("calendar")} className={`rounded-md px-3 py-1.5 text-sm font-medium flex items-center gap-1.5 transition-all ${viewMode === "calendar" ? "bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 shadow-sm" : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"}`}>
+                    <CalendarIcon size={16} /> <span className="hidden sm:inline">Lịch biểu</span>
                   </button>
                 </div>
-                <button onClick={() => downloadCSV(filtered)} style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", color: "#166534", padding: "8px 16px", borderRadius: 8, fontSize: 13, fontWeight: 600, display: "flex", alignItems: "center", gap: 6, cursor: "pointer", transition: "all 0.15s" }}>
-                  <Download size={16} /> Xuất CSV
+                <button onClick={() => downloadCSV(filtered)} className="bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 text-emerald-700 dark:text-emerald-400 px-3 py-1.5 rounded-lg text-sm font-semibold flex items-center gap-1.5 hover:bg-emerald-100 dark:hover:bg-emerald-500/20 transition-colors">
+                  <Download size={16} /> <span className="hidden sm:inline">CSV</span>
                 </button>
               </div>
             </div>
@@ -366,106 +366,78 @@ export default function GSLawDashboard() {
           {/* VIEW: TABLE */}
           {viewMode === "table" && (
             <>
-              <div style={{ overflowX: "auto" }}>
-                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-                  <thead>
-                    <tr style={{ background: "#fff" }}>
-                      {["Khách hàng", "Dịch vụ", "Ưu tiên", "Nguồn", "Ngày tạo", "Hạn chót", "Trạng thái", "Giá trị", "Thao tác"].map(h => {
-                        const isValueCol = h === "Giá trị";
-                        const isActionCol = h === "Thao tác";
-                        return (
-                          <th key={h} style={{
-                            padding: "12px 18px",
-                            textAlign: isValueCol ? "right" : isActionCol ? "center" : "left",
-                            fontSize: 11,
-                            fontWeight: 700,
-                            color: "#64748b",
-                            textTransform: "uppercase",
-                            letterSpacing: ".5px",
-                            borderBottom: "1px solid #e2e8f0",
-                            whiteSpace: "nowrap"
-                          }}>{h}</th>
-                        );
-                      })}
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm text-slate-600 dark:text-slate-400 border-collapse">
+                  <thead className="text-xs text-slate-500 dark:text-slate-400 uppercase bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700">
+                    <tr>
+                      <th className="px-4 py-3 font-semibold tracking-wider">Khách hàng</th>
+                      <th className="px-4 py-3 font-semibold tracking-wider">Dịch vụ</th>
+                      <th className="px-4 py-3 font-semibold tracking-wider">Ưu tiên</th>
+                      <th className="px-4 py-3 font-semibold tracking-wider">Nguồn</th>
+                      <th className="px-4 py-3 font-semibold tracking-wider">Hạn chót</th>
+                      <th className="px-4 py-3 font-semibold tracking-wider">Trạng thái</th>
+                      <th className="px-4 py-3 font-semibold tracking-wider text-right">Giá trị</th>
+                      <th className="px-4 py-3 font-semibold tracking-wider text-center">Thao tác</th>
                     </tr>
                   </thead>
                   <tbody>
                     {loading ? (
-                      <tr><td colSpan={9} style={{ textAlign: "center", padding: "48px 0", color: "#94a3b8" }}>Đang tải dữ liệu...</td></tr>
+                      <tr><td colSpan={8} className="text-center py-12 text-slate-400">Đang tải dữ liệu...</td></tr>
                     ) : filtered.length === 0 ? (
-                      <tr><td colSpan={9} style={{ textAlign: "center", padding: "48px 0", color: "#94a3b8" }}>Không tìm thấy hồ sơ phù hợp</td></tr>
+                      <tr><td colSpan={8} className="text-center py-12 text-slate-400">Không tìm thấy hồ sơ phù hợp</td></tr>
                     ) : (
-                      filtered.map((item, idx) => {
-                        const s = getStatus(item.status);
+                      filtered.map((item) => {
                         const warn = isWarning(item.due_date, item.status);
-                        const serviceBadge = getServiceBadgeStyle(item.service_type);
-                        const priorityBadge = getPriorityStyle(item.priority || null);
-
+                        const rowClass = warn ? "bg-red-50/50 dark:bg-red-900/10 hover:bg-red-50 dark:hover:bg-red-900/20" : "hover:bg-slate-50 dark:hover:bg-slate-800/50";
                         return (
-                          <tr key={item.id} onClick={() => router.push(`/project/${item.id}`)} style={{ borderBottom: idx < filtered.length - 1 ? "1px solid #f1f5f9" : "none", background: warn ? "#fef2f2" : "transparent", cursor: "pointer", transition: "background .15s" }} onMouseEnter={e => { if(!warn) e.currentTarget.style.background = "#f8fafc"; }} onMouseLeave={e => { if(!warn) e.currentTarget.style.background = "transparent"; }}>
-                            {/* CRM Stacked Customer */}
-                            <td style={{ padding: "14px 18px", verticalAlign: "middle" }}>
-                              <div style={{ display: "flex", flexDirection: "column" }}>
-                                <span style={{ fontWeight: 700, color: "#0f172a", fontSize: 14 }}>{item.customer_name}</span>
-                                {item.customer_phone && <span style={{ fontSize: 11, color: "#94a3b8", marginTop: 2 }}>{item.customer_phone}</span>}
+                          <tr key={item.id} onClick={() => router.push(`/project/${item.id}`)} className={`border-b border-slate-100 dark:border-slate-700/50 cursor-pointer transition-colors ${rowClass}`}>
+                            
+                            <td className="px-4 py-3 align-middle">
+                              <div className="flex flex-col">
+                                <span className="font-bold text-slate-900 dark:text-slate-100 text-sm">{item.customer_name}</span>
+                                {item.customer_phone && <span className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{item.customer_phone}</span>}
                               </div>
                             </td>
                             
-                            {/* Service Type Badge */}
-                            <td style={{ padding: "14px 18px", verticalAlign: "middle" }}>
-                              <span style={{
-                                background: serviceBadge.bg, color: serviceBadge.color, border: `1px solid ${serviceBadge.border}`,
-                                borderRadius: 12, padding: "2px 8px", fontSize: 11, fontWeight: 600, display: "inline-block"
-                              }}>{item.service_type ?? "—"}</span>
+                            <td className="px-4 py-3 align-middle">
+                              <span className={`px-2 py-0.5 rounded-full text-[11px] font-semibold border ${getServiceBadgeStyle(item.service_type)}`}>{item.service_type ?? "—"}</span>
                             </td>
 
-                            {/* Priority Badge */}
-                            <td style={{ padding: "14px 18px", verticalAlign: "middle" }}>
-                              <span style={{
-                                background: priorityBadge.bg, color: priorityBadge.color, border: `1px solid ${priorityBadge.border}`,
-                                borderRadius: 12, padding: "2px 8px", fontSize: 11, fontWeight: 600, display: "inline-block"
-                              }}>{item.priority ?? "Trung bình"}</span>
+                            <td className="px-4 py-3 align-middle">
+                              <span className={`px-2 py-0.5 rounded-full text-[11px] font-semibold border ${getPriorityStyle(item.priority || null)}`}>{item.priority ?? "Trung bình"}</span>
                             </td>
 
-                            <td style={{ padding: "14px 18px", color: "#475569", verticalAlign: "middle" }}>{item.partner_name ?? "—"}</td>
+                            <td className="px-4 py-3 align-middle text-slate-500 dark:text-slate-400">{item.partner_name ?? "—"}</td>
                             
-                            <td style={{ padding: "14px 18px", color: "#94a3b8", whiteSpace: "nowrap", verticalAlign: "middle" }}>{formatDate(item.created_at)}</td>
-                            
-                            <td style={{ padding: "14px 18px", color: warn ? "#dc2626" : "#64748b", whiteSpace: "nowrap", fontWeight: warn ? 700 : 400, verticalAlign: "middle" }}>
-                              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>{formatDate(item.due_date)}{warn && <AlertCircle size={14} color="#dc2626" />}</div>
+                            <td className={`px-4 py-3 align-middle whitespace-nowrap ${warn ? 'text-red-600 dark:text-red-400 font-bold' : 'text-slate-500 dark:text-slate-400'}`}>
+                              <div className="flex items-center gap-1.5">{formatDate(item.due_date)}{warn && <AlertCircle size={14} className="text-red-500" />}</div>
                             </td>
                             
-                            <td style={{ padding: "14px 18px", verticalAlign: "middle" }} onClick={e => e.stopPropagation()}>
-                              <select value={item.status ?? ""} onChange={e => handleStatus(item.id, e.target.value)} style={{ background: s.bg, color: s.color, border: `1.5px solid ${s.border}`, borderRadius: 20, padding: "3px 10px", fontSize: 12, fontWeight: 600, cursor: "pointer", outline: "none" }}>
+                            <td className="px-4 py-3 align-middle" onClick={e => e.stopPropagation()}>
+                              <select value={item.status ?? ""} onChange={e => handleStatus(item.id, e.target.value)} className={`text-xs font-semibold rounded-full px-2 py-1 outline-none border cursor-pointer ${getStatusStyle(item.status)}`}>
                                 <option value="" disabled>— Chọn —</option>
                                 {STATUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                               </select>
                             </td>
 
-                            {/* Financial Column right-aligned with paid progress */}
-                            <td style={{ padding: "14px 18px", textAlign: "right", verticalAlign: "middle" }}>
-                              <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 2 }}>
-                                <span style={{ fontWeight: 700, color: "#0f172a" }}>{item.total_amount ? formatVND(Number(item.total_amount)) : "—"}</span>
+                            <td className="px-4 py-3 align-middle text-right">
+                              <div className="flex flex-col items-end gap-1">
+                                <span className="font-bold text-slate-900 dark:text-slate-100">{item.total_amount ? formatVND(Number(item.total_amount)) : "—"}</span>
                                 {item.total_amount && (
                                   <>
-                                    <span style={{ fontSize: 10, color: "#64748b" }}>
-                                      Đã thu {formatVND(item.paid_amount || 0)}
-                                    </span>
-                                    <div style={{ width: 80, height: 4, background: "#e2e8f0", borderRadius: 2, overflow: "hidden", marginTop: 2 }}>
-                                      <div style={{
-                                        width: `${Math.min(100, Math.round(((item.paid_amount || 0) / (item.total_amount || 1)) * 100))}%`,
-                                        height: "100%", background: "#10b981", borderRadius: 2
-                                      }} />
+                                    <span className="text-[10px] text-slate-500 dark:text-slate-400">Đã thu {formatVND(item.paid_amount || 0)}</span>
+                                    <div className="w-20 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                                      <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${Math.min(100, Math.round(((item.paid_amount || 0) / (item.total_amount || 1)) * 100))}%` }} />
                                     </div>
                                   </>
                                 )}
                               </div>
                             </td>
 
-                            <td style={{ padding: "14px 18px", textAlign: "center", verticalAlign: "middle" }} onClick={e => e.stopPropagation()}>
-                              <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
-                                <button onClick={() => router.push(`/project/${item.id}`)} title="Xem" style={btnStyle("#eff6ff", "#bfdbfe", "#1d4ed8")}><Eye size={13} /></button>
-                                {isAdmin && <button onClick={() => handleDelete(item.id, item.customer_name)} title="Xóa" style={btnStyle("#fff1f2", "#fecdd3", "#e11d48")}><Trash2 size={13} /></button>}
+                            <td className="px-4 py-3 align-middle text-center" onClick={e => e.stopPropagation()}>
+                              <div className="flex gap-2 justify-center">
+                                <button onClick={() => router.push(`/project/${item.id}`)} title="Xem" className="p-1.5 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded-md hover:bg-blue-100 dark:hover:bg-blue-500/20 transition-colors"><Eye size={14} /></button>
+                                {isAdmin && <button onClick={() => handleDelete(item.id, item.customer_name)} title="Xóa" className="p-1.5 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 rounded-md hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-colors"><Trash2 size={14} /></button>}
                               </div>
                             </td>
                           </tr>
@@ -475,58 +447,43 @@ export default function GSLawDashboard() {
                   </tbody>
                 </table>
               </div>
-              <div style={{ padding: "12px 20px", borderTop: "1px solid #f1f5f9", fontSize: 12, color: "#94a3b8", textAlign: "right" }}>Hiển thị {filtered.length} hồ sơ</div>
+              <div className="px-5 py-3 border-t border-slate-100 dark:border-slate-700 text-xs text-slate-500 dark:text-slate-400 text-right bg-slate-50/50 dark:bg-slate-800/30">Hiển thị {filtered.length} hồ sơ</div>
             </>
           )}
 
           {/* VIEW: KANBAN */}
           {viewMode === "kanban" && (
-            <div style={{ display: "flex", gap: 16, overflowX: "auto", padding: "16px 0 32px 0", alignItems: "flex-start" }}>
+            <div className="flex gap-4 overflow-x-auto p-4 md:p-6 items-start">
               {STATUS_OPTIONS.map(col => {
                 const colItems = filtered.filter(h => (h.status === col.value) || (!h.status && col.value === "Đang chờ"));
                 return (
-                  <div key={col.value} style={{ flexShrink: 0, width: 300, background: "#f8fafc", borderRadius: 12, border: "1px solid #e2e8f0", padding: 12, display: "flex", flexDirection: "column", gap: 12, maxHeight: "70vh", overflowY: "auto" }}>
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 4px" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <div style={{ width: 10, height: 10, borderRadius: "50%", background: col.color }} />
-                        <span style={{ fontSize: 14, fontWeight: 700, color: "#0f172a" }}>{col.label}</span>
+                  <div key={col.value} className="shrink-0 w-[300px] bg-slate-50/80 dark:bg-slate-800/80 rounded-xl border border-slate-200 dark:border-slate-700 p-3 flex flex-col gap-3 max-h-[70vh] overflow-y-auto">
+                    <div className="flex items-center justify-between px-1">
+                      <div className="flex items-center gap-2">
+                        <div className={`w-2.5 h-2.5 rounded-full ${col.value === "Hoàn thành" ? "bg-emerald-500" : col.value === "Đang soạn" ? "bg-blue-500" : col.value === "Đang nộp" ? "bg-sky-500" : "bg-amber-500"}`} />
+                        <span className="text-sm font-bold text-slate-900 dark:text-slate-100">{col.label}</span>
                       </div>
-                      <span style={{ fontSize: 12, fontWeight: 600, color: "#64748b", background: "#e2e8f0", padding: "2px 8px", borderRadius: 12 }}>{colItems.length}</span>
+                      <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 bg-slate-200 dark:bg-slate-700 px-2 py-0.5 rounded-full">{colItems.length}</span>
                     </div>
 
                     {colItems.map(item => {
                       const warn = isWarning(item.due_date, item.status);
-                      const serviceBadge = getServiceBadgeStyle(item.service_type);
-                      const priorityBadge = getPriorityStyle(item.priority || null);
-
                       return (
-                        <div key={item.id} onClick={() => router.push(`/project/${item.id}`)} style={{
-                          background: "#fff", borderRadius: 10, border: warn ? "1px solid #fca5a5" : "1px solid #e2e8f0", padding: 16, boxShadow: "0 1px 3px rgba(0,0,0,0.05)", cursor: "pointer", transition: "transform 0.15s", position: "relative"
-                        }} onMouseEnter={e => e.currentTarget.style.transform = "translateY(-2px)"} onMouseLeave={e => e.currentTarget.style.transform = "none"}>
-                          {warn && <div style={{ position: "absolute", top: -6, right: -6, background: "#ef4444", color: "#fff", borderRadius: "50%", width: 20, height: 20, display: "flex", alignItems: "center", justifyContent: "center" }}><AlertCircle size={12}/></div>}
+                        <div key={item.id} onClick={() => router.push(`/project/${item.id}`)} className={`bg-white dark:bg-slate-900 rounded-xl border p-4 shadow-sm cursor-pointer transition-transform hover:-translate-y-0.5 relative ${warn ? 'border-red-300 dark:border-red-500/50' : 'border-slate-200 dark:border-slate-700'}`}>
+                          {warn && <div className="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center shadow-sm"><AlertCircle size={12}/></div>}
                           
-                          <div style={{ fontSize: 14, fontWeight: 700, color: "#0f172a", marginBottom: 8, wordBreak: "break-word" }}>{item.customer_name}</div>
-                          {item.customer_phone && <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 8 }}>{item.customer_phone}</div>}
+                          <div className="text-sm font-bold text-slate-900 dark:text-slate-100 mb-2 break-words">{item.customer_name}</div>
                           
-                          {/* Badges container in Kanban */}
-                          <div style={{ display: "flex", gap: 6, marginBottom: 8, flexWrap: "wrap" }}>
-                            {item.service_type && (
-                              <span style={{
-                                background: serviceBadge.bg, color: serviceBadge.color, border: `1px solid ${serviceBadge.border}`,
-                                borderRadius: 6, padding: "1px 6px", fontSize: 10, fontWeight: 600
-                              }}>{item.service_type}</span>
-                            )}
-                            <span style={{
-                              background: priorityBadge.bg, color: priorityBadge.color, border: `1px solid ${priorityBadge.border}`,
-                              borderRadius: 6, padding: "1px 6px", fontSize: 10, fontWeight: 600
-                            }}>{item.priority || "Trung bình"}</span>
+                          <div className="flex gap-1.5 mb-3 flex-wrap">
+                            {item.service_type && <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-semibold border ${getServiceBadgeStyle(item.service_type)}`}>{item.service_type}</span>}
+                            <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-semibold border ${getPriorityStyle(item.priority || null)}`}>{item.priority || "Trung bình"}</span>
                           </div>
                           
-                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 12, borderTop: "1px solid #f1f5f9", paddingTop: 12 }}>
-                            <div style={{ fontSize: 11, color: warn ? "#dc2626" : "#64748b", display: "flex", alignItems: "center", gap: 4, fontWeight: warn ? 600 : 400 }}>
+                          <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+                            <div className={`text-xs flex items-center gap-1 font-medium ${warn ? 'text-red-600 dark:text-red-400' : 'text-slate-500 dark:text-slate-400'}`}>
                               <Clock size={12} /> {formatDate(item.due_date)}
                             </div>
-                            {item.total_amount && <div style={{ fontSize: 12, fontWeight: 700, color: "#059669" }}>{formatVND(item.total_amount)}</div>}
+                            {item.total_amount && <div className="text-xs font-bold text-emerald-600 dark:text-emerald-400">{formatVND(item.total_amount)}</div>}
                           </div>
                         </div>
                       )
@@ -537,39 +494,56 @@ export default function GSLawDashboard() {
             </div>
           )}
 
+          {/* VIEW: CALENDAR */}
+          {viewMode === "calendar" && (
+            <div className="p-4 md:p-6 bg-white dark:bg-slate-800 h-[600px]">
+              <Calendar
+                localizer={localizer}
+                events={calendarEvents}
+                startAccessor="start"
+                endAccessor="end"
+                views={['month', 'week', 'agenda']}
+                messages={{ next: "Tiếp", previous: "Trước", today: "Hôm nay", month: "Tháng", week: "Tuần", day: "Ngày", agenda: "Lịch trình" }}
+                onSelectEvent={(event) => router.push(`/project/${event.id}`)}
+                eventPropGetter={(event: Event) => {
+                  const status = (event.resource as HoSo).status;
+                  const warn = isWarning((event.resource as HoSo).due_date, status);
+                  let bg = "#3b82f6"; // blue
+                  if (status === "Hoàn thành") bg = "#10b981"; // green
+                  else if (warn) bg = "#ef4444"; // red
+                  else if (status === "Đang chờ") bg = "#f59e0b"; // yellow
+                  return { style: { backgroundColor: bg, border: "none", borderRadius: "6px", fontSize: "11px", fontWeight: 600, padding: "2px 6px" } };
+                }}
+                className="font-sans dark:text-slate-300 dark:[&_.rbc-off-range-bg]:bg-slate-800/50 dark:[&_.rbc-today]:bg-slate-700/50"
+              />
+            </div>
+          )}
+
         </div>
       </main>
 
       {/* ─── ADD NEW RECORD MODAL ─── */}
       {isAddModalOpen && (
-        <div style={{
-          position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
-          background: "rgba(15, 23, 42, 0.6)", backdropFilter: "blur(4px)",
-          display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100
-        }} onClick={() => setIsAddModalOpen(false)}>
-          <div style={{
-            background: "#fff", borderRadius: 16, width: "90%", maxWidth: 500,
-            padding: 24, boxShadow: "0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04)",
-            display: "flex", flexDirection: "column", gap: 16
-          }} onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4" onClick={() => setIsAddModalOpen(false)}>
+          <div className="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-lg p-6 shadow-2xl flex flex-col gap-4 border border-slate-200 dark:border-slate-700" onClick={e => e.stopPropagation()}>
             
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid #f1f5f9", paddingBottom: 12 }}>
-              <span style={{ fontSize: 16, fontWeight: 700, color: "#0f172a" }}>Thêm hồ sơ mới</span>
-              <button onClick={() => setIsAddModalOpen(false)} style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", color: "#94a3b8" }}>
-                <X size={18} />
+            <div className="flex justify-between items-center border-b border-slate-100 dark:border-slate-700 pb-3">
+              <span className="text-lg font-bold text-slate-900 dark:text-slate-100">Thêm hồ sơ mới</span>
+              <button onClick={() => setIsAddModalOpen(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors">
+                <X size={20} />
               </button>
             </div>
             
-            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              <div><label style={labelStyle}>Tên KH *</label><input type="text" placeholder="CÔNG TY..." value={tenKhach} onChange={e=>setTenKhach(e.target.value)} style={inputStyle} /></div>
-              <div><label style={labelStyle}>Số điện thoại</label><input type="text" placeholder="090..." value={soDienThoai} onChange={e=>setSoDienThoai(e.target.value)} style={inputStyle} /></div>
-              <div><label style={labelStyle}>Dịch vụ</label><input type="text" placeholder="Loại..." value={dichVu} onChange={e=>setDichVu(e.target.value)} style={inputStyle} /></div>
-              <div><label style={labelStyle}>Người GT</label><input type="text" placeholder="Tên..." value={nguoiGioiThieu} onChange={e=>setNguoiGioiThieu(e.target.value)} style={inputStyle} /></div>
-              <div><label style={labelStyle}>Giá trị (đ)</label><input type="number" placeholder="1000000" value={soTien} onChange={e=>setSoTien(e.target.value)} style={inputStyle} /></div>
-              <div><label style={labelStyle}>Hạn chót</label><input type="date" value={hanChot} onChange={e=>setHanChot(e.target.value)} style={inputStyle} /></div>
+            <div className="flex flex-col gap-3">
+              <div><label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1">Tên KH *</label><input type="text" placeholder="CÔNG TY..." value={tenKhach} onChange={e=>setTenKhach(e.target.value)} className="w-full px-3 py-2 bg-transparent border border-slate-300 dark:border-slate-600 rounded-lg text-sm outline-none focus:border-blue-500 transition-colors dark:text-slate-100" /></div>
+              <div><label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1">Số điện thoại</label><input type="text" placeholder="090..." value={soDienThoai} onChange={e=>setSoDienThoai(e.target.value)} className="w-full px-3 py-2 bg-transparent border border-slate-300 dark:border-slate-600 rounded-lg text-sm outline-none focus:border-blue-500 transition-colors dark:text-slate-100" /></div>
+              <div><label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1">Dịch vụ</label><input type="text" placeholder="Loại..." value={dichVu} onChange={e=>setDichVu(e.target.value)} className="w-full px-3 py-2 bg-transparent border border-slate-300 dark:border-slate-600 rounded-lg text-sm outline-none focus:border-blue-500 transition-colors dark:text-slate-100" /></div>
+              <div><label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1">Người GT</label><input type="text" placeholder="Tên..." value={nguoiGioiThieu} onChange={e=>setNguoiGioiThieu(e.target.value)} className="w-full px-3 py-2 bg-transparent border border-slate-300 dark:border-slate-600 rounded-lg text-sm outline-none focus:border-blue-500 transition-colors dark:text-slate-100" /></div>
+              <div><label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1">Giá trị (đ)</label><input type="number" placeholder="1000000" value={soTien} onChange={e=>setSoTien(e.target.value)} className="w-full px-3 py-2 bg-transparent border border-slate-300 dark:border-slate-600 rounded-lg text-sm outline-none focus:border-blue-500 transition-colors dark:text-slate-100" /></div>
+              <div><label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1">Hạn chót</label><input type="date" value={hanChot} onChange={e=>setHanChot(e.target.value)} className="w-full px-3 py-2 bg-transparent border border-slate-300 dark:border-slate-600 rounded-lg text-sm outline-none focus:border-blue-500 transition-colors dark:text-slate-100" /></div>
               <div>
-                <label style={labelStyle}>Ưu tiên</label>
-                <select value={doUuTien} onChange={e=>setDoUuTien(e.target.value)} style={{ ...selectStyle, width: "100%" }}>
+                <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1">Ưu tiên</label>
+                <select value={doUuTien} onChange={e=>setDoUuTien(e.target.value)} className="w-full px-3 py-2 bg-transparent border border-slate-300 dark:border-slate-600 rounded-lg text-sm outline-none focus:border-blue-500 transition-colors dark:text-slate-100 [&>option]:bg-white dark:[&>option]:bg-slate-800">
                   <option value="Thường">Thường (Xanh)</option>
                   <option value="Trung bình">Trung bình (Vàng)</option>
                   <option value="Gấp">Gấp (Đỏ)</option>
@@ -577,27 +551,15 @@ export default function GSLawDashboard() {
               </div>
             </div>
 
-            <div style={{ display: "flex", gap: 12, justifyContent: "flex-end", marginTop: 8 }}>
-              <button onClick={() => setIsAddModalOpen(false)} style={{ background: "#f1f5f9", border: "none", borderRadius: 8, padding: "8px 16px", fontSize: 13, fontWeight: 600, color: "#64748b", cursor: "pointer" }}>Hủy</button>
-              <button onClick={handleAdd} disabled={adding} style={{
-                background: "linear-gradient(135deg,#1d4ed8,#2563eb)", color: "#fff", border: "none", borderRadius: 8, padding: "8px 16px", fontSize: 13, fontWeight: 600, cursor: adding ? "not-allowed" : "pointer"
-              }}>{adding ? "Đang lưu..." : "Thêm"}</button>
+            <div className="flex justify-end gap-3 mt-2">
+              <button onClick={() => setIsAddModalOpen(false)} className="px-4 py-2 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-semibold text-sm rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors">Hủy</button>
+              <button onClick={handleAdd} disabled={adding} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm rounded-lg disabled:opacity-50 transition-colors">
+                {adding ? "Đang lưu..." : "Thêm"}
+              </button>
             </div>
           </div>
         </div>
       )}
-
-      <style>{`
-        * { box-sizing: border-box; }
-        body { margin: 0; }
-        @media (max-width: 900px) { main > div:nth-child(2) { grid-template-columns: 1fr !important; } }
-      `}</style>
     </div>
   );
 }
-
-const labelStyle = { display: "block", fontSize: 11, fontWeight: 600, color: "#64748b", marginBottom: 4, textTransform: "uppercase" as const, letterSpacing: ".5px" };
-const inputStyle = { width: "100%", padding: "8px 12px", fontSize: 13, border: "1.5px solid #e2e8f0", borderRadius: 8, outline: "none", color: "#0f172a", transition: "border-color .15s" };
-const selectStyle = { background: "#fff", border: "1px solid #e2e8f0", borderRadius: 8, padding: "7px 12px", fontSize: 13, outline: "none", color: "#0f172a" };
-const btnStyle = (bg: string, border: string, color: string) => ({ background: bg, border: `1px solid ${border}`, color: color, borderRadius: 8, padding: "5px 10px", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12, fontWeight: 600 });
-const toggleBtnStyle = { border: "none", borderRadius: 6, padding: "6px 12px", fontSize: 13, fontWeight: 600, display: "flex", alignItems: "center", gap: 6, cursor: "pointer", transition: "all 0.2s" };

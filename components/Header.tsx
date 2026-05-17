@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
-import { Scale, LogOut, Bell, Settings, Activity } from "lucide-react";
+import { Scale, LogOut, Bell, Settings, Activity, Moon, Sun } from "lucide-react";
+import { useTheme } from "next-themes";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
@@ -28,6 +29,10 @@ export default function Header({
   const { profile, isAdmin } = useAuth();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [showNoti, setShowNoti] = useState(false);
+  const { theme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => setMounted(true), []);
 
   useEffect(() => {
     if (!profile) return;
@@ -69,13 +74,13 @@ export default function Header({
         {showActions && (
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           {isAdmin && (
-            <button onClick={() => router.push("/logs")} title="Nhật ký hệ thống" style={btnNavStyle}>
+            <button onClick={() => router.push("/logs")} title="Nhật ký hệ thống" className="flex items-center justify-center gap-1.5 px-3 py-2 bg-white/10 text-white border-none rounded-lg cursor-pointer hover:bg-white/20 transition-colors">
               <Activity size={16} />
             </button>
           )}
 
           <div style={{ position: "relative" }}>
-            <button onClick={() => setShowNoti(!showNoti)} title="Thông báo" style={btnNavStyle}>
+            <button onClick={() => setShowNoti(!showNoti)} title="Thông báo" className="flex items-center justify-center gap-1.5 px-3 py-2 bg-white/10 text-white border-none rounded-lg cursor-pointer hover:bg-white/20 transition-colors">
               <Bell size={16} />
               {unreadCount > 0 && <div style={{ position: "absolute", top: -4, right: -4, background: "#ef4444", color: "#fff", fontSize: 10, width: 16, height: 16, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }}>{unreadCount}</div>}
             </button>
@@ -93,13 +98,23 @@ export default function Header({
             )}
           </div>
           
-          <button onClick={() => router.push("/settings")} title="Cài đặt" style={btnNavStyle}>
+          <button onClick={() => router.push("/settings")} title="Cài đặt" className="flex items-center justify-center gap-1.5 px-3 py-2 bg-white/10 text-white border-none rounded-lg cursor-pointer hover:bg-white/20 transition-colors">
             <Settings size={16} />
           </button>
           
-          <button onClick={handleLogout} title="Đăng xuất" style={btnNavStyle}>
+          <button onClick={handleLogout} title="Đăng xuất" className="flex items-center justify-center gap-1.5 px-3 py-2 bg-white/10 text-white border-none rounded-lg cursor-pointer hover:bg-white/20 transition-colors">
             <LogOut size={16} />
           </button>
+          
+          {mounted && (
+            <button 
+              onClick={() => setTheme(theme === "dark" ? "light" : "dark")} 
+              title="Giao diện" 
+              className="flex items-center justify-center gap-1.5 px-3 py-2 bg-white/10 text-white border-none rounded-lg cursor-pointer hover:bg-white/20 transition-colors"
+            >
+              {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
+            </button>
+          )}
           
           {profile && <div style={{ marginLeft: 8, fontSize: 13, fontWeight: 600, color: "#bfdbfe" }}>Hi, {profile.display_name}</div>}
         </div>

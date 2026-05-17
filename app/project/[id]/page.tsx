@@ -7,7 +7,8 @@ import {
   ArrowLeft, Briefcase, Calendar, User, Wallet, 
   MessageSquare, Plus, Clock, AlertCircle, LogOut,
   FileText, Download, Trash2, UploadCloud, Loader2,
-  CheckSquare, Check, Link as LinkIcon, Printer, CreditCard
+  CheckSquare, Check, Link as LinkIcon, Printer, CreditCard,
+  FileDown
 } from "lucide-react";
 import { toast } from "sonner";
 import Header from "@/components/Header";
@@ -17,6 +18,7 @@ import { logActivity } from "@/lib/logger";
 interface Project {
   id: string;
   customer_name: string;
+  customer_phone: string | null;
   service_type: string | null;
   partner_name: string | null;
   status: string | null;
@@ -54,6 +56,7 @@ export default function ProjectDetail({ params }: { params: Promise<{ id: string
   const [tasks, setTasks] = useState<Task[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [settings, setSettings] = useState<any>(null);
+  const [exportMode, setExportMode] = useState<"none" | "hop-dong" | "uy-quyen">("none");
   
   const [taskFetchError, setTaskFetchError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -247,13 +250,24 @@ export default function ProjectDetail({ params }: { params: Promise<{ id: string
   const debt = totalAmount - totalPaid;
 
   const extraLeft = <button onClick={() => router.push("/")} style={btnNavStyle}><ArrowLeft size={18} /></button>;
+  const handleExportContract = (type: "hop-dong" | "uy-quyen") => {
+    setExportMode(type);
+    setTimeout(() => {
+      window.print();
+      setExportMode("none");
+    }, 100);
+  };
+
   const extraRight = (
     <>
       <button onClick={handleGenerateLink} title="Chia sẻ khách hàng" style={{ ...btnNavStyle, background: "#3b82f6" }}>
         <LinkIcon size={15} /> Tracking
       </button>
-      <button onClick={() => window.print()} title="In PDF" style={btnNavStyle}>
+      <button onClick={() => window.print()} title="In Báo Cáo" style={btnNavStyle}>
         <Printer size={15} /> In Báo Cáo
+      </button>
+      <button onClick={() => handleExportContract("hop-dong")} title="Tạo Hợp Đồng" style={{ ...btnNavStyle, background: "#10b981" }}>
+        <FileDown size={15} /> Tạo HĐ
       </button>
     </>
   );
@@ -445,6 +459,41 @@ export default function ProjectDetail({ params }: { params: Promise<{ id: string
 
       </main>
 
+      {/* QUICK EXPORT LAYOUTS */}
+      {exportMode !== "none" && (
+        <div className="print-only-export" style={{ padding: "40px", fontFamily: "'Times New Roman', serif", fontSize: "12pt", lineHeight: 1.5, display: "none" }}>
+          {exportMode === "hop-dong" && (
+            <>
+              <div style={{ textAlign: "center", fontWeight: "bold", marginBottom: 20 }}>
+                CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM<br/>
+                Độc lập - Tự do - Hạnh phúc<br/>
+                ***<br/><br/>
+                HỢP ĐỒNG DỊCH VỤ PHÁP LÝ
+              </div>
+              <div>
+                Hôm nay, ngày {new Date().getDate()} tháng {new Date().getMonth() + 1} năm {new Date().getFullYear()}, tại văn phòng {settings?.company_name || "GSLaw"}. Chúng tôi gồm:<br/><br/>
+                <strong>BÊN CUNG CẤP DỊCH VỤ (Bên A): {settings?.company_name || "CÔNG TY LUẬT GSLAW"}</strong><br/>
+                Địa chỉ: {settings?.company_address || "..........................................................................."}<br/>
+                Mã số thuế: {settings?.tax_id || "..........................."}<br/><br/>
+                <strong>BÊN SỬ DỤNG DỊCH VỤ (Bên B): {project?.customer_name?.toUpperCase() || "..................................................."}</strong><br/>
+                Số điện thoại: {project?.customer_phone || "..........................."}<br/>
+                Đại diện: ...........................................................................<br/><br/>
+                <strong>ĐIỀU 1: NỘI DUNG DỊCH VỤ</strong><br/>
+                Bên B đồng ý thuê Bên A cung cấp dịch vụ pháp lý: <strong>{project?.service_type || "..................................................."}</strong>.<br/><br/>
+                <strong>ĐIỀU 2: PHÍ DỊCH VỤ VÀ THANH TOÁN</strong><br/>
+                Phí dịch vụ trọn gói là: <strong>{formatVND(project?.total_amount || 0)}</strong>.<br/>
+                Đã thanh toán: <strong>{formatVND(totalPaid || 0)}</strong>. Còn lại: <strong>{formatVND(debt || 0)}</strong>.<br/><br/>
+                (Hợp đồng này được lập thành 02 bản, mỗi bên giữ 01 bản có giá trị pháp lý như nhau.)
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", marginTop: 50, textAlign: "center", fontWeight: "bold" }}>
+                <div>ĐẠI DIỆN BÊN A</div>
+                <div>ĐẠI DIỆN BÊN B</div>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
       {/* IN ẤN CSS */}
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
@@ -453,28 +502,35 @@ export default function ProjectDetail({ params }: { params: Promise<{ id: string
         
         @media print {
           @page { size: A4 portrait; margin: 10mm; }
-          body { background: #fff !important; }
-          .print-wrapper { background: #fff !important; }
-          .hide-on-print { display: none !important; }
-          .show-on-print { display: block !important; }
           
-          .print-main { 
-            display: block !important; 
-            padding: 0 !important; 
-            margin-top: 20px !important;
-          }
-          
-          .print-left, .print-right {
-            width: 100% !important;
-            margin-bottom: 20px !important;
-            box-shadow: none !important;
-            border: 1px solid #000 !important;
-          }
-          
-          .print-no-sticky { position: static !important; }
-          .print-height-auto { height: auto !important; }
-          .print-bg-white { background: #fff !important; }
-          .print-overflow-visible { overflow: visible !important; }
+          ${exportMode !== "none" ? `
+            body * { visibility: hidden; }
+            .print-only-export, .print-only-export * { visibility: visible; }
+            .print-only-export { display: block !important; position: absolute; left: 0; top: 0; width: 100%; }
+          ` : `
+            body { background: #fff !important; }
+            .print-wrapper { background: #fff !important; }
+            .hide-on-print { display: none !important; }
+            .show-on-print { display: block !important; }
+            
+            .print-main { 
+              display: block !important; 
+              padding: 0 !important; 
+              margin-top: 20px !important;
+            }
+            
+            .print-left, .print-right {
+              width: 100% !important;
+              margin-bottom: 20px !important;
+              box-shadow: none !important;
+              border: 1px solid #000 !important;
+            }
+            
+            .print-no-sticky { position: static !important; }
+            .print-height-auto { height: auto !important; }
+            .print-bg-white { background: #fff !important; }
+            .print-overflow-visible { overflow: visible !important; }
+          `}
           
           /* Force colors */
           * { -webkit-print-color-adjust: exact !important; color-adjust: exact !important; }

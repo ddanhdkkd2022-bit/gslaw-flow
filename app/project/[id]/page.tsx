@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter, useParams } from "next/navigation";
+import { useEffect, useState, use } from "react";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { 
   ArrowLeft, Briefcase, Calendar, User, Wallet, 
@@ -30,10 +30,10 @@ function formatDateTime(iso: string) {
   return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")} - ${String(d.getDate()).padStart(2,"0")}/${String(d.getMonth()+1).padStart(2,"0")}/${d.getFullYear()}`;
 }
 
-export default function ProjectDetail() {
+export default function ProjectDetail({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
-  const params = useParams();
-  const id = params.id as string;
+  const unwrappedParams = use(params);
+  const id = unwrappedParams.id;
 
   const [project, setProject] = useState<Project | null>(null);
   const [notes, setNotes] = useState<Note[]>([]);
@@ -66,11 +66,12 @@ export default function ProjectDetail() {
       .order("created_at", { ascending: false });
 
     if (notesError) {
-      // Nếu lỗi do bảng chưa tồn tại, báo lỗi thân thiện hơn
-      if (notesError.code === "42P01") {
-         setError("Bảng project_notes chưa được tạo trên Supabase. Vui lòng chạy lệnh SQL trong kế hoạch.");
+      // PGRST205 or 42P01: Table does not exist
+      if (notesError.code === "PGRST205" || notesError.code === "42P01") {
+         setError("⚠️ LỖI: Bảng 'project_notes' chưa được tạo trên Supabase. Bạn cần chạy lệnh SQL để tạo bảng trước khi có thể lưu ghi chú.");
       } else {
          console.error(notesError);
+         setError("Lỗi khi tải ghi chú: " + notesError.message);
       }
     } else {
       setNotes(notesData || []);
@@ -91,7 +92,11 @@ export default function ProjectDetail() {
       .insert([{ project_id: id, note_content: newNote.trim() }]);
 
     if (error) {
-      alert("Lỗi khi thêm ghi chú: " + error.message);
+      if (error.code === "PGRST205" || error.code === "42P01") {
+        alert("Lỗi: Bảng 'project_notes' chưa tồn tại. Vui lòng chạy lệnh SQL trên Supabase.");
+      } else {
+        alert("Lỗi khi thêm ghi chú: " + error.message);
+      }
     } else {
       setNewNote("");
       // Lấy lại danh sách ghi chú để hiển thị ghi chú mới nhất

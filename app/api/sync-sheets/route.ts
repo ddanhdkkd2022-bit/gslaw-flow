@@ -42,7 +42,7 @@ export async function POST(req: Request) {
     // Fetch existing sheets headers/data to find matching row
     const getRes = await sheets.spreadsheets.values.get({
       spreadsheetId,
-      range: "Sheet1!A:J",
+      range: "A:J",
     });
 
     const rows = getRes.data.values || [];
@@ -53,7 +53,7 @@ export async function POST(req: Request) {
       const headers = ["ID", "Tên Khách hàng", "Số điện thoại", "Dịch vụ", "Trạng thái", "Giá trị", "Đã thu", "Ngày tạo", "Hạn chót", "Cập nhật cuối"];
       await sheets.spreadsheets.values.append({
         spreadsheetId,
-        range: "Sheet1!A1",
+        range: "A1",
         valueInputOption: "RAW",
         requestBody: { values: [headers] },
       });
@@ -88,7 +88,7 @@ export async function POST(req: Request) {
       // Update existing row
       await sheets.spreadsheets.values.update({
         spreadsheetId,
-        range: `Sheet1!A${matchedRowIndex}:J${matchedRowIndex}`,
+        range: `A${matchedRowIndex}:J${matchedRowIndex}`,
         valueInputOption: "RAW",
         requestBody: { values: [newValues] },
       });
@@ -97,7 +97,7 @@ export async function POST(req: Request) {
       // Append a new row
       await sheets.spreadsheets.values.append({
         spreadsheetId,
-        range: "Sheet1!A:J",
+        range: "A:J",
         valueInputOption: "RAW",
         requestBody: { values: [newValues] },
       });

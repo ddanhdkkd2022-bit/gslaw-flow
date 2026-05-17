@@ -4,9 +4,11 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import {
   Briefcase, Wallet, Clock, Search, Plus, Trash2,
-  Scale, TrendingUp, AlertCircle, Eye, LogOut
+  Scale, TrendingUp, AlertCircle, Eye, LogOut, 
+  Download, Filter, Calendar
 } from "lucide-react";
 import { toast } from "sonner";
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, Legend } from "recharts";
 
 /* ─── Types ─────────────────────────────────────────── */
 interface HoSo {
@@ -17,6 +19,7 @@ interface HoSo {
   status: string | null;
   total_amount: number | null;
   created_at: string | null;
+  due_date: string | null;
 }
 
 /* ─── Status config ─────────────────────────────────── */
@@ -36,6 +39,31 @@ function formatDate(iso: string | null) {
   if (!iso) return "—";
   const d = new Date(iso);
   return `${String(d.getDate()).padStart(2,"0")}/${String(d.getMonth()+1).padStart(2,"0")}/${d.getFullYear()}`;
+}
+
+// Hàm xuất CSV
+function downloadCSV(data: HoSo[]) {
+  if (data.length === 0) return toast.info("Không có dữ liệu để xuất");
+  const headers = ["Khách hàng", "Dịch vụ", "Người giới thiệu", "Trạng thái", "Phí dịch vụ", "Ngày tạo", "Hạn chót"];
+  const rows = data.map(item => [
+    `"${item.customer_name || ""}"`,
+    `"${item.service_type || ""}"`,
+    `"${item.partner_name || ""}"`,
+    `"${item.status || ""}"`,
+    item.total_amount || 0,
+    `"${formatDate(item.created_at)}"`,
+    `"${formatDate(item.due_date)}"`
+  ]);
+  const csvContent = [headers.join(","), ...rows.map(e => e.join(","))].join("\n");
+  const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" }); // \uFEFF for Excel UTF-8 BOM
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.setAttribute("href", url);
+  link.setAttribute("download", `GSLaw_Export_${new Date().getTime()}.csv`);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  toast.success("Đã xuất file CSV thành công!");
 }
 
 /* ─── Stat Card ─────────────────────────────────────── */
@@ -75,14 +103,21 @@ export default function GSLawDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState<string | null>(null);
   const [adding, setAdding]   = useState(false);
-  const [search, setSearch]   = useState("");
   const router = useRouter();
 
-  /* form */
+  /* form state */
   const [tenKhach, setTenKhach]               = useState("");
   const [dichVu, setDichVu]                   = useState("");
   const [nguoiGioiThieu, setNguoiGioiThieu]   = useState("");
   const [soTien, setSoTien]                   = useState("");
+  const [hanChot, setHanChot]                 = useState("");
+
+  /* filter state */
+  const [search, setSearch]             = useState("");
+  const [filterStatus, setFilterStatus] = useState("");
+  const [filterPartner, setFilterPartner]= useState("");
+  const [dateFrom, setDateFrom]         = useState("");
+  const [dateTo, setDateTo]             = useState("");
 
   /* fetch */
   async function fetchData() {
@@ -107,12 +142,17 @@ export default function GSLawDashboard() {
       service_type:  dichVu.trim() || null,
       partner_name:  nguoiGioiThieu.trim() || null,
       total_amount:  soTien ? Number(soTien) : null,
+      due_date:      hanChot || null,
     }]);
     if (error) {
-      toast.error("Lỗi khi thêm hồ sơ", { description: error.message });
+      if (error.code === "42703") {
+        toast.error("Lỗi Database", { description: "Cột 'due_date' chưa được thêm vào bảng projects. Hãy chạy mã SQL!" });
+      } else {
+        toast.error("Lỗi khi thêm hồ sơ", { description: error.message });
+      }
     } else { 
       toast.success("Thêm hồ sơ thành công!");
-      setTenKhach(""); setDichVu(""); setNguoiGioiThieu(""); setSoTien(""); 
+      setTenKhach(""); setDichVu(""); setNguoiGioiThieu(""); setSoTien(""); setHanChot("");
       await fetchData(); 
     }
     setAdding(false);
@@ -146,13 +186,49 @@ export default function GSLawDashboard() {
     toast.info("Đã đăng xuất");
   };
 
-  /* computed */
-  const totalDoanhThu = hoso.reduce((s, h) => s + (Number(h.total_amount) || 0), 0);
-  const dangXuLy      = hoso.filter(h => h.status !== "Hoàn thành").length;
-  const filtered      = useMemo(() =>
-    hoso.filter(h => h.customer_name?.toLowerCase().includes(search.toLowerCase())),
-    [hoso, search]
-  );
+  /* computed filters */
+  const filtered = useMemo(() => {
+    return hoso.filter(h => {
+      // Name
+      if (search && !h.customer_name?.toLowerCase().includes(search.toLowerCase())) return false;
+      // Status
+      if (filterStatus && h.status !== filterStatus) return false;
+      // Partner
+      if (filterPartner && h.partner_name !== filterPartner) return false;
+      // Date Range (created_at)
+      if (dateFrom || dateTo) {
+        if (!h.created_at) return false;
+        const d = new Date(h.created_at).getTime();
+        if (dateFrom && d < new Date(dateFrom).getTime()) return false;
+        if (dateTo && d > new Date(dateTo).getTime() + 86400000) return false; // +1 day to include the to-date fully
+      }
+      return true;
+    });
+  }, [hoso, search, filterStatus, filterPartner, dateFrom, dateTo]);
+
+  const uniquePartners = Array.from(new Set(hoso.map(h => h.partner_name).filter(Boolean))) as string[];
+  const totalDoanhThu = filtered.reduce((s, h) => s + (Number(h.total_amount) || 0), 0);
+  const dangXuLy      = filtered.filter(h => h.status !== "Hoàn thành").length;
+
+  /* Chart Data */
+  const chartData = useMemo(() => {
+    const data: Record<string, number> = {};
+    filtered.forEach(h => {
+      const s = h.status || "Chưa rõ";
+      data[s] = (data[s] || 0) + 1;
+    });
+    return Object.entries(data).map(([name, value]) => ({ name, value }));
+  }, [filtered]);
+  const COLORS = ['#fcd34d', '#93c5fd', '#7dd3fc', '#86efac', '#cbd5e1'];
+
+  /* Check deadline */
+  const isWarning = (dueDate: string | null, status: string | null) => {
+    if (!dueDate || status === "Hoàn thành") return false;
+    const today = new Date().getTime();
+    const due = new Date(dueDate).getTime();
+    // < 3 days away (3 * 24 * 60 * 60 * 1000)
+    return (due - today) < 259200000;
+  };
 
   /* ── Render ── */
   return (
@@ -170,7 +246,6 @@ export default function GSLawDashboard() {
           <span style={{ fontSize: 18, fontWeight: 700, color: "#fff", letterSpacing: ".3px" }}>
             GSLaw Flow
           </span>
-          <span style={{ fontSize: 13, color: "#93c5fd", marginLeft: 4, display: "none" }}>— Hệ thống Quản lý Hồ sơ</span>
         </div>
         
         <button
@@ -188,212 +263,184 @@ export default function GSLawDashboard() {
         </button>
       </header>
 
-      <main style={{ maxWidth: 1200, margin: "0 auto", padding: "32px 24px" }}>
+      <main style={{ maxWidth: 1200, margin: "0 auto", padding: "32px 24px", display: "flex", flexDirection: "column", gap: 24 }}>
 
         {/* ── STAT CARDS ── */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 16, marginBottom: 28 }}>
-          <StatCard label="Tổng hồ sơ"       value={hoso.length}          icon={Briefcase}  accent="#1d4ed8" />
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 16 }}>
+          <StatCard label="Tổng hồ sơ hiển thị" value={filtered.length}          icon={Briefcase}  accent="#1d4ed8" />
           <StatCard label="Đang xử lý"        value={dangXuLy}             icon={Clock}      accent="#d97706" />
           <StatCard label="Doanh thu dự kiến" value={formatVND(totalDoanhThu)} icon={Wallet} accent="#059669" />
-          <StatCard label="Hoàn thành"        value={hoso.filter(h=>h.status==="Hoàn thành").length} icon={TrendingUp} accent="#7c3aed" />
+          <StatCard label="Hoàn thành"        value={filtered.filter(h=>h.status==="Hoàn thành").length} icon={TrendingUp} accent="#7c3aed" />
         </div>
 
-        {/* ── ADD FORM ── */}
-        <div style={{
-          background: "#fff", borderRadius: 14, border: "1px solid #e2e8f0",
-          padding: "20px 24px", marginBottom: 24,
-          boxShadow: "0 1px 4px rgba(0,0,0,.06)",
-        }}>
-          <div style={{ fontSize: 14, fontWeight: 700, color: "#0f172a", marginBottom: 14, display: "flex", alignItems: "center", gap: 8 }}>
-            <Plus size={16} color="#1d4ed8" /> Thêm hồ sơ mới
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(170px,1fr))", gap: 12 }}>
-            {[
-              { label: "Tên khách hàng *", val: tenKhach, set: setTenKhach, ph: "CÔNG TY TNHH...", type: "text" },
-              { label: "Dịch vụ",          val: dichVu,   set: setDichVu,   ph: "Thay đổi địa chỉ...", type: "text" },
-              { label: "Người giới thiệu", val: nguoiGioiThieu, set: setNguoiGioiThieu, ph: "C. Hoài...", type: "text" },
-              { label: "Số tiền phí (đ)",  val: soTien,   set: setSoTien,   ph: "1200000", type: "number" },
-            ].map(f => (
-              <div key={f.label}>
-                <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "#64748b", marginBottom: 4, textTransform: "uppercase", letterSpacing: ".5px" }}>{f.label}</label>
-                <input
-                  type={f.type}
-                  placeholder={f.ph}
-                  value={f.val}
-                  onChange={e => f.set(e.target.value)}
-                  onKeyDown={e => e.key === "Enter" && handleAdd()}
-                  style={{
-                    width: "100%", padding: "8px 12px", fontSize: 13,
-                    border: "1.5px solid #e2e8f0", borderRadius: 8,
-                    outline: "none", boxSizing: "border-box", color: "#0f172a",
-                    transition: "border-color .15s",
-                  }}
-                  onFocus={e => (e.target.style.borderColor = "#1d4ed8")}
-                  onBlur={e => (e.target.style.borderColor = "#e2e8f0")}
-                />
+        {/* ── ADD FORM & CHARTS ROW ── */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 350px", gap: 24, alignItems: "start" }}>
+          
+          {/* Form Thêm */}
+          <div style={{
+            background: "#fff", borderRadius: 14, border: "1px solid #e2e8f0", padding: "20px 24px", boxShadow: "0 1px 4px rgba(0,0,0,.06)",
+          }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: "#0f172a", marginBottom: 14, display: "flex", alignItems: "center", gap: 8 }}>
+              <Plus size={16} color="#1d4ed8" /> Thêm hồ sơ mới
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(140px,1fr))", gap: 12 }}>
+              <div>
+                <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "#64748b", marginBottom: 4, textTransform: "uppercase", letterSpacing: ".5px" }}>Tên KH *</label>
+                <input type="text" placeholder="CÔNG TY..." value={tenKhach} onChange={e=>setTenKhach(e.target.value)} style={inputStyle} />
               </div>
-            ))}
-            <div style={{ display: "flex", alignItems: "flex-end" }}>
-              <button
-                onClick={handleAdd}
-                disabled={adding}
-                style={{
+              <div>
+                <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "#64748b", marginBottom: 4, textTransform: "uppercase", letterSpacing: ".5px" }}>Dịch vụ</label>
+                <input type="text" placeholder="Loại..." value={dichVu} onChange={e=>setDichVu(e.target.value)} style={inputStyle} />
+              </div>
+              <div>
+                <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "#64748b", marginBottom: 4, textTransform: "uppercase", letterSpacing: ".5px" }}>Người GT</label>
+                <input type="text" placeholder="Tên..." value={nguoiGioiThieu} onChange={e=>setNguoiGioiThieu(e.target.value)} style={inputStyle} />
+              </div>
+              <div>
+                <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "#64748b", marginBottom: 4, textTransform: "uppercase", letterSpacing: ".5px" }}>Phí (đ)</label>
+                <input type="number" placeholder="1000000" value={soTien} onChange={e=>setSoTien(e.target.value)} style={inputStyle} />
+              </div>
+              <div>
+                <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "#64748b", marginBottom: 4, textTransform: "uppercase", letterSpacing: ".5px" }}>Hạn chót</label>
+                <input type="date" value={hanChot} onChange={e=>setHanChot(e.target.value)} style={inputStyle} />
+              </div>
+              <div style={{ display: "flex", alignItems: "flex-end" }}>
+                <button onClick={handleAdd} disabled={adding} style={{
                   width: "100%", padding: "9px 0", fontSize: 13, fontWeight: 700,
-                  background: adding ? "#93c5fd" : "linear-gradient(135deg,#1d4ed8,#2563eb)",
-                  color: "#fff", border: "none", borderRadius: 8,
-                  cursor: adding ? "not-allowed" : "pointer",
+                  background: adding ? "#93c5fd" : "linear-gradient(135deg,#1d4ed8,#2563eb)", color: "#fff",
+                  border: "none", borderRadius: 8, cursor: adding ? "not-allowed" : "pointer",
                   display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
-                  boxShadow: "0 2px 8px rgba(29,78,216,.25)",
-                  transition: "opacity .15s",
-                }}
-              >
-                <Plus size={15} /> {adding ? "Đang thêm..." : "Thêm hồ sơ"}
-              </button>
+                  boxShadow: "0 2px 8px rgba(29,78,216,.25)", transition: "opacity .15s"
+                }}>
+                  <Plus size={15} /> Thêm
+                </button>
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* ── ERROR ── */}
-        {error && (
+          {/* Chart */}
           <div style={{
-            background: "#fef2f2", border: "1px solid #fca5a5", borderRadius: 10,
-            padding: "12px 16px", marginBottom: 16, color: "#b91c1c",
-            fontSize: 13, display: "flex", alignItems: "center", gap: 8,
+            background: "#fff", borderRadius: 14, border: "1px solid #e2e8f0", padding: "20px 24px", boxShadow: "0 1px 4px rgba(0,0,0,.06)", height: "100%"
           }}>
-            <AlertCircle size={16} /> {error}
-          </div>
-        )}
-
-        {/* ── TABLE CARD ── */}
-        <div style={{
-          background: "#fff", borderRadius: 14, border: "1px solid #e2e8f0",
-          boxShadow: "0 1px 4px rgba(0,0,0,.06)", overflow: "hidden",
-        }}>
-
-          {/* search bar */}
-          <div style={{ padding: "16px 20px", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", gap: 10 }}>
-            <Search size={16} color="#94a3b8" />
-            <input
-              placeholder="Tìm theo tên khách hàng..."
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              style={{
-                border: "none", outline: "none", fontSize: 14, width: "100%",
-                color: "#0f172a", background: "transparent",
-              }}
-            />
-            {search && (
-              <span style={{ fontSize: 12, color: "#94a3b8" }}>{filtered.length} kết quả</span>
+            <div style={{ fontSize: 14, fontWeight: 700, color: "#0f172a", marginBottom: 14, display: "flex", alignItems: "center", gap: 8 }}>
+              Thống kê Trạng thái
+            </div>
+            {chartData.length > 0 ? (
+              <div style={{ height: 180, width: "100%" }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie data={chartData} cx="50%" cy="50%" innerRadius={40} outerRadius={70} paddingAngle={5} dataKey="value">
+                      {chartData.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
+                    </Pie>
+                    <RechartsTooltip />
+                    <Legend iconType="circle" wrapperStyle={{ fontSize: 12 }} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            ) : (
+              <div style={{ textAlign: "center", color: "#94a3b8", fontSize: 13, marginTop: 40 }}>Không có dữ liệu</div>
             )}
           </div>
+        </div>
 
-          {/* table */}
+        {/* ── TABLE & FILTERS ── */}
+        <div style={{ background: "#fff", borderRadius: 14, border: "1px solid #e2e8f0", boxShadow: "0 1px 4px rgba(0,0,0,.06)", overflow: "hidden" }}>
+          
+          {/* Bộ lọc nâng cao */}
+          <div style={{ padding: "16px 20px", borderBottom: "1px solid #f1f5f9", display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap", background: "#f8fafc" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, minWidth: 200, background: "#fff", border: "1px solid #e2e8f0", borderRadius: 8, padding: "6px 12px" }}>
+              <Search size={16} color="#94a3b8" />
+              <input placeholder="Tìm Tên khách hàng..." value={search} onChange={e=>setSearch(e.target.value)} style={{ border: "none", outline: "none", fontSize: 13, width: "100%", background: "transparent" }} />
+            </div>
+
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <Filter size={16} color="#64748b" />
+              <select value={filterStatus} onChange={e=>setFilterStatus(e.target.value)} style={selectStyle}>
+                <option value="">Tất cả Trạng thái</option>
+                {STATUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+
+              <select value={filterPartner} onChange={e=>setFilterPartner(e.target.value)} style={selectStyle}>
+                <option value="">Tất cả Nguồn GT</option>
+                {uniquePartners.map(p => <option key={p} value={p}>{p}</option>)}
+              </select>
+
+              <div style={{ display: "flex", alignItems: "center", gap: 4, background: "#fff", border: "1px solid #e2e8f0", borderRadius: 8, padding: "4px 8px" }}>
+                <Calendar size={14} color="#64748b" />
+                <input type="date" value={dateFrom} onChange={e=>setDateFrom(e.target.value)} style={{ border: "none", outline: "none", fontSize: 12 }} title="Từ ngày" />
+                <span style={{ color: "#94a3b8" }}>-</span>
+                <input type="date" value={dateTo} onChange={e=>setDateTo(e.target.value)} style={{ border: "none", outline: "none", fontSize: 12 }} title="Đến ngày" />
+              </div>
+            </div>
+
+            <button
+              onClick={() => downloadCSV(filtered)}
+              style={{
+                background: "#f0fdf4", border: "1px solid #bbf7d0", color: "#166534",
+                padding: "8px 16px", borderRadius: 8, fontSize: 13, fontWeight: 600,
+                display: "flex", alignItems: "center", gap: 6, cursor: "pointer", transition: "all 0.15s"
+              }}
+            >
+              <Download size={16} /> Xuất CSV
+            </button>
+          </div>
+
+          {/* Bảng */}
           <div style={{ overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
               <thead>
-                <tr style={{ background: "#f8fafc" }}>
-                  {["Khách hàng", "Dịch vụ", "Người giới thiệu", "Ngày tạo", "Trạng thái", "Phí", "Thao tác"].map(h => (
+                <tr style={{ background: "#fff" }}>
+                  {["Khách hàng", "Dịch vụ", "Nguồn", "Ngày tạo", "Hạn chót", "Trạng thái", "Phí", "Thao tác"].map(h => (
                     <th key={h} style={{
-                      padding: "11px 16px", textAlign: "left",
-                      fontSize: 11, fontWeight: 700, color: "#64748b",
-                      textTransform: "uppercase", letterSpacing: ".5px",
-                      borderBottom: "1px solid #e2e8f0",
-                      whiteSpace: "nowrap",
+                      padding: "11px 16px", textAlign: "left", fontSize: 11, fontWeight: 700, color: "#64748b",
+                      textTransform: "uppercase", letterSpacing: ".5px", borderBottom: "1px solid #e2e8f0", whiteSpace: "nowrap"
                     }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
-                  <tr><td colSpan={7} style={{ textAlign: "center", padding: "48px 0", color: "#94a3b8" }}>
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
-                      <div style={{
-                        width: 20, height: 20, border: "2px solid #e2e8f0",
-                        borderTop: "2px solid #1d4ed8", borderRadius: "50%",
-                        animation: "spin 1s linear infinite",
-                      }} />
-                      Đang tải dữ liệu...
-                    </div>
-                  </td></tr>
+                  <tr><td colSpan={8} style={{ textAlign: "center", padding: "48px 0", color: "#94a3b8" }}>Đang tải dữ liệu...</td></tr>
                 ) : filtered.length === 0 ? (
-                  <tr><td colSpan={7} style={{ textAlign: "center", padding: "48px 0", color: "#94a3b8", fontSize: 14 }}>
-                    {search ? `Không tìm thấy "${search}"` : "Chưa có hồ sơ. Dùng form trên để thêm!"}
-                  </td></tr>
+                  <tr><td colSpan={8} style={{ textAlign: "center", padding: "48px 0", color: "#94a3b8" }}>Không tìm thấy hồ sơ phù hợp</td></tr>
                 ) : (
                   filtered.map((item, idx) => {
                     const s = getStatus(item.status);
+                    const warn = isWarning(item.due_date, item.status);
                     return (
-                      <tr
-                        key={item.id}
-                        onClick={() => router.push(`/project/${item.id}`)}
+                      <tr key={item.id} onClick={() => router.push(`/project/${item.id}`)}
                         style={{
                           borderBottom: idx < filtered.length - 1 ? "1px solid #f1f5f9" : "none",
-                          transition: "background .15s",
-                          cursor: "pointer",
+                          background: warn ? "#fef2f2" : "transparent",
+                          cursor: "pointer", transition: "background .15s"
                         }}
-                        onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")}
-                        onMouseLeave={e => (e.currentTarget.style.background = "")}
+                        onMouseEnter={e => { if(!warn) e.currentTarget.style.background = "#f8fafc"; }}
+                        onMouseLeave={e => { if(!warn) e.currentTarget.style.background = "transparent"; }}
                       >
-                        <td style={{ padding: "13px 16px", fontWeight: 600, color: "#0f172a" }}>
-                          {item.customer_name}
-                        </td>
+                        <td style={{ padding: "13px 16px", fontWeight: 600, color: "#0f172a" }}>{item.customer_name}</td>
                         <td style={{ padding: "13px 16px", color: "#475569" }}>{item.service_type ?? "—"}</td>
                         <td style={{ padding: "13px 16px", color: "#475569" }}>{item.partner_name ?? "—"}</td>
-                        <td style={{ padding: "13px 16px", color: "#94a3b8", whiteSpace: "nowrap" }}>
-                          {formatDate(item.created_at)}
+                        <td style={{ padding: "13px 16px", color: "#94a3b8", whiteSpace: "nowrap" }}>{formatDate(item.created_at)}</td>
+                        <td style={{ padding: "13px 16px", color: warn ? "#dc2626" : "#64748b", whiteSpace: "nowrap", fontWeight: warn ? 700 : 400 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                            {formatDate(item.due_date)}
+                            {warn && <AlertCircle size={14} color="#dc2626" />}
+                          </div>
                         </td>
                         <td style={{ padding: "13px 16px" }} onClick={e => e.stopPropagation()}>
-                          <select
-                            value={item.status ?? ""}
-                            onChange={e => handleStatus(item.id, e.target.value)}
-                            style={{
-                              background: s.bg, color: s.color,
-                              border: `1.5px solid ${s.border}`,
-                              borderRadius: 20, padding: "3px 10px",
-                              fontSize: 12, fontWeight: 600,
-                              cursor: "pointer", outline: "none",
-                            }}
+                          <select value={item.status ?? ""} onChange={e => handleStatus(item.id, e.target.value)}
+                            style={{ background: s.bg, color: s.color, border: `1.5px solid ${s.border}`, borderRadius: 20, padding: "3px 10px", fontSize: 12, fontWeight: 600, cursor: "pointer", outline: "none" }}
                           >
                             <option value="" disabled>— Chọn —</option>
-                            {STATUS_OPTIONS.map(o => (
-                              <option key={o.value} value={o.value}>{o.label}</option>
-                            ))}
+                            {STATUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                           </select>
                         </td>
                         <td style={{ padding: "13px 16px", textAlign: "right", fontWeight: 600, color: "#059669", whiteSpace: "nowrap" }}>
                           {item.total_amount ? formatVND(Number(item.total_amount)) : "—"}
                         </td>
                         <td style={{ padding: "13px 16px", textAlign: "center", display: "flex", gap: 8, justifyContent: "center" }} onClick={e => e.stopPropagation()}>
-                          <button
-                            onClick={() => router.push(`/project/${item.id}`)}
-                            title="Xem chi tiết"
-                            style={{
-                              background: "#eff6ff", border: "1px solid #bfdbfe",
-                              color: "#1d4ed8", borderRadius: 8,
-                              padding: "5px 10px", cursor: "pointer",
-                              display: "inline-flex", alignItems: "center", gap: 4,
-                              fontSize: 12, fontWeight: 600, transition: "all .15s",
-                            }}
-                            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "#1d4ed8"; (e.currentTarget as HTMLButtonElement).style.color = "#fff"; }}
-                            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "#eff6ff"; (e.currentTarget as HTMLButtonElement).style.color = "#1d4ed8"; }}
-                          >
-                            <Eye size={13} /> Xem
-                          </button>
-                          <button
-                            onClick={() => handleDelete(item.id, item.customer_name)}
-                            title="Xóa hồ sơ"
-                            style={{
-                              background: "#fff1f2", border: "1px solid #fecdd3",
-                              color: "#e11d48", borderRadius: 8,
-                              padding: "5px 10px", cursor: "pointer",
-                              display: "inline-flex", alignItems: "center", gap: 4,
-                              fontSize: 12, fontWeight: 600, transition: "all .15s",
-                            }}
-                            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "#e11d48"; (e.currentTarget as HTMLButtonElement).style.color = "#fff"; }}
-                            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "#fff1f2"; (e.currentTarget as HTMLButtonElement).style.color = "#e11d48"; }}
-                          >
-                            <Trash2 size={13} /> Xóa
-                          </button>
+                          <button onClick={() => router.push(`/project/${item.id}`)} title="Xem" style={btnStyle("#eff6ff", "#bfdbfe", "#1d4ed8")}><Eye size={13} /> Xem</button>
+                          <button onClick={() => handleDelete(item.id, item.customer_name)} title="Xóa" style={btnStyle("#fff1f2", "#fecdd3", "#e11d48")}><Trash2 size={13} /> Xóa</button>
                         </td>
                       </tr>
                     );
@@ -402,21 +449,29 @@ export default function GSLawDashboard() {
               </tbody>
             </table>
           </div>
-
-          {/* footer */}
-          {!loading && filtered.length > 0 && (
-            <div style={{ padding: "10px 20px", borderTop: "1px solid #f1f5f9", fontSize: 12, color: "#94a3b8", textAlign: "right" }}>
-              Hiển thị {filtered.length}/{hoso.length} hồ sơ
-            </div>
-          )}
+          <div style={{ padding: "10px 20px", borderTop: "1px solid #f1f5f9", fontSize: 12, color: "#94a3b8", textAlign: "right" }}>
+            Hiển thị {filtered.length} hồ sơ
+          </div>
         </div>
       </main>
 
       <style>{`
-        @keyframes spin { to { transform: rotate(360deg); } }
         * { box-sizing: border-box; }
         body { margin: 0; }
+        @media (max-width: 900px) {
+          main > div:nth-child(2) { grid-template-columns: 1fr !important; }
+        }
       `}</style>
     </div>
   );
 }
+
+const inputStyle = {
+  width: "100%", padding: "8px 12px", fontSize: 13, border: "1.5px solid #e2e8f0", borderRadius: 8, outline: "none", color: "#0f172a", transition: "border-color .15s"
+};
+const selectStyle = {
+  background: "#fff", border: "1px solid #e2e8f0", borderRadius: 8, padding: "7px 12px", fontSize: 13, outline: "none", color: "#0f172a"
+};
+const btnStyle = (bg: string, border: string, color: string) => ({
+  background: bg, border: `1px solid ${border}`, color: color, borderRadius: 8, padding: "5px 10px", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12, fontWeight: 600
+});

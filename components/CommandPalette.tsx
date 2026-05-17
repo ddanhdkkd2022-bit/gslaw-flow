@@ -56,12 +56,12 @@ export function CommandPalette() {
   if (!open) return null;
 
   return (
-    <div cmdk-overlay="">
-      <Command.Dialog 
-        open={open} 
-        onOpenChange={setOpen} 
+    <div cmdk-overlay="" onClick={() => setOpen(false)}>
+      <Command 
         cmdk-dialog=""
         shouldFilter={false} // We do custom server-side filtering
+        onClick={(e) => e.stopPropagation()}
+        className="bg-white dark:bg-slate-900"
       >
         <div className="flex items-center border-b border-slate-200 dark:border-slate-700 px-3">
           <Search className="w-5 h-5 text-slate-400 shrink-0" />
@@ -70,6 +70,7 @@ export function CommandPalette() {
             onValueChange={setQuery} 
             placeholder="Tìm tên khách hàng hoặc SĐT..." 
             cmdk-input="" 
+            autoFocus
           />
         </div>
         
@@ -98,7 +99,7 @@ export function CommandPalette() {
             </Command.Item>
           ))}
         </Command.List>
-      </Command.Dialog>
+      </Command>
     </div>
   );
 }

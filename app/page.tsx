@@ -1,9 +1,10 @@
 "use client";
 import { useEffect, useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import {
   Briefcase, Wallet, Clock, Search, Plus, Trash2,
-  Scale, TrendingUp, AlertCircle
+  Scale, TrendingUp, AlertCircle, Eye
 } from "lucide-react";
 
 /* ─── Types ─────────────────────────────────────────── */
@@ -74,6 +75,7 @@ export default function GSLawDashboard() {
   const [error, setError]     = useState<string | null>(null);
   const [adding, setAdding]   = useState(false);
   const [search, setSearch]   = useState("");
+  const router = useRouter();
 
   /* form */
   const [tenKhach, setTenKhach]               = useState("");
@@ -285,9 +287,11 @@ export default function GSLawDashboard() {
                     return (
                       <tr
                         key={item.id}
+                        onClick={() => router.push(`/project/${item.id}`)}
                         style={{
                           borderBottom: idx < filtered.length - 1 ? "1px solid #f1f5f9" : "none",
                           transition: "background .15s",
+                          cursor: "pointer",
                         }}
                         onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")}
                         onMouseLeave={e => (e.currentTarget.style.background = "")}
@@ -300,7 +304,7 @@ export default function GSLawDashboard() {
                         <td style={{ padding: "13px 16px", color: "#94a3b8", whiteSpace: "nowrap" }}>
                           {formatDate(item.created_at)}
                         </td>
-                        <td style={{ padding: "13px 16px" }}>
+                        <td style={{ padding: "13px 16px" }} onClick={e => e.stopPropagation()}>
                           <select
                             value={item.status ?? ""}
                             onChange={e => handleStatus(item.id, e.target.value)}
@@ -321,7 +325,22 @@ export default function GSLawDashboard() {
                         <td style={{ padding: "13px 16px", textAlign: "right", fontWeight: 600, color: "#059669", whiteSpace: "nowrap" }}>
                           {item.total_amount ? formatVND(Number(item.total_amount)) : "—"}
                         </td>
-                        <td style={{ padding: "13px 16px", textAlign: "center" }}>
+                        <td style={{ padding: "13px 16px", textAlign: "center", display: "flex", gap: 8, justifyContent: "center" }} onClick={e => e.stopPropagation()}>
+                          <button
+                            onClick={() => router.push(`/project/${item.id}`)}
+                            title="Xem chi tiết"
+                            style={{
+                              background: "#eff6ff", border: "1px solid #bfdbfe",
+                              color: "#1d4ed8", borderRadius: 8,
+                              padding: "5px 10px", cursor: "pointer",
+                              display: "inline-flex", alignItems: "center", gap: 4,
+                              fontSize: 12, fontWeight: 600, transition: "all .15s",
+                            }}
+                            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "#1d4ed8"; (e.currentTarget as HTMLButtonElement).style.color = "#fff"; }}
+                            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "#eff6ff"; (e.currentTarget as HTMLButtonElement).style.color = "#1d4ed8"; }}
+                          >
+                            <Eye size={13} /> Xem
+                          </button>
                           <button
                             onClick={() => handleDelete(item.id, item.customer_name)}
                             title="Xóa hồ sơ"

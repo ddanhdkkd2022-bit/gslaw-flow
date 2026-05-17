@@ -41,6 +41,7 @@ interface HoSo {
   paid_amount?: number;
   created_at: string | null;
   due_date: string | null;
+  share_token?: string | null;
 }
 
 /* ─── Status config ─────────────────────────────────── */
@@ -170,6 +171,25 @@ export default function GSLawDashboard() {
   const [dateFrom, setDateFrom]         = useState("");
   const [dateTo, setDateTo]             = useState("");
 
+  /* sync to Google Sheets helper */
+  async function syncToGoogleSheets(projectData: HoSo) {
+    try {
+      const response = await fetch("/api/sync-sheets", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(projectData),
+      });
+      const res = await response.json();
+      if (!res.success) {
+        console.warn("Sheets sync warning:", res.message);
+      } else {
+        console.log("Successfully synced to Google Sheets!");
+      }
+    } catch (err) {
+      console.error("Failed to sync to Google Sheets:", err);
+    }
+  }
+
   /* fetch */
   async function fetchData() {
     setLoading(true);
@@ -206,7 +226,7 @@ export default function GSLawDashboard() {
   async function handleAdd() {
     if (!tenKhach.trim()) { toast.warning("Vui lòng nhập tên khách hàng"); return; }
     setAdding(true);
-    const { error } = await supabase.from("projects").insert([{
+    const { data, error } = await supabase.from("projects").insert([{
       customer_name: tenKhach.trim(),
       customer_phone: soDienThoai.trim() || null,
       service_type: dichVu.trim() || null,
@@ -214,7 +234,7 @@ export default function GSLawDashboard() {
       total_amount: soTien ? Number(soTien) : null,
       due_date: hanChot || null,
       priority: doUuTien
-    }]);
+    }]).select().single();
 
     if (error) {
       toast.error("Lỗi khi thêm hồ sơ", { description: error.message });
@@ -223,6 +243,15 @@ export default function GSLawDashboard() {
       if (user && profile) await logActivity(user.id, profile.display_name || "Nhân viên", "đã thêm hồ sơ mới", tenKhach.trim());
       setTenKhach(""); setSoDienThoai(""); setDichVu(""); setNguoiGioiThieu(""); setSoTien(""); setHanChot(""); setDoUuTien("Trung bình");
       setIsAddModalOpen(false);
+      
+      // Sync real-time to Sheets
+      if (data) {
+        await syncToGoogleSheets({
+          ...data,
+          paid_amount: 0
+        });
+      }
+      
       await fetchData(); 
     }
     setAdding(false);
@@ -243,13 +272,33 @@ export default function GSLawDashboard() {
 
   /* status update */
   async function handleStatus(id: string | number, val: string) {
-    const { error } = await supabase.from("projects").update({ status: val }).eq("id", id);
-    if (error) toast.error("Lỗi cập nhật trạng thái", { description: error.message });
-    else {
+    const { data, error } = await supabase.from("projects").update({ status: val }).eq("id", id).select().single();
+    if (error) {
+      toast.error("Lỗi cập nhật trạng thái", { description: error.message });
+    } else {
       toast.success("Đã cập nhật trạng thái thành: " + val);
       if (user && profile) await logActivity(user.id, profile.display_name || "Nhân viên", "đã cập nhật trạng thái thành " + val, "Hồ sơ ID: " + id);
+      
       setHoso(prev => prev.map(h => h.id === id ? { ...h, status: val } : h));
+
+      // Sync updated record to Sheets
+      if (data) {
+        const localRecord = hoso.find(h => h.id === id);
+        await syncToGoogleSheets({
+          ...data,
+          paid_amount: localRecord?.paid_amount || 0
+        });
+      }
     }
+  }
+
+  /* Zalo deep link handler */
+  function handleZaloShare(item: HoSo) {
+    const host = typeof window !== "undefined" ? window.location.origin : "http://localhost:3000";
+    const trackingLink = item.share_token ? `${host}/tracking/${item.share_token}` : `${host}/project/${item.id}`;
+    const text = `Xin chào ${item.customer_name}, hồ sơ dịch vụ "${item.service_type || 'Pháp lý'}" của bạn tại GSLaw hiện có trạng thái: [${item.status || 'Đang xử lý'}]. Bạn có thể theo dõi tiến độ chi tiết thời gian thực tại đây: ${trackingLink}`;
+    const url = `https://zalo.me/?text=${encodeURIComponent(text)}`;
+    window.open(url, "_blank");
   }
 
   /* computed filters */
@@ -436,6 +485,7 @@ export default function GSLawDashboard() {
 
                             <td className="px-4 py-3 align-middle text-center" onClick={e => e.stopPropagation()}>
                               <div className="flex gap-2 justify-center">
+                                <button onClick={() => handleZaloShare(item)} title="Gửi Zalo" className="px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white border-none rounded text-[11px] font-semibold cursor-pointer shadow-sm transition-colors">Zalo</button>
                                 <button onClick={() => router.push(`/project/${item.id}`)} title="Xem" className="p-1.5 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded-md hover:bg-blue-100 dark:hover:bg-blue-500/20 transition-colors"><Eye size={14} /></button>
                                 {isAdmin && <button onClick={() => handleDelete(item.id, item.customer_name)} title="Xóa" className="p-1.5 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 rounded-md hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-colors"><Trash2 size={14} /></button>}
                               </div>

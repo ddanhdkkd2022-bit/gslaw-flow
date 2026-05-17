@@ -202,7 +202,10 @@ export default function ProjectDetail({ params }: { params: Promise<{ id: string
       if (user && profile) await logActivity(user.id, profile.display_name || "User", "đã ghi nhận thanh toán", formatVND(amt));
       setNewPaymentAmount(""); setNewPaymentNote("");
       const { data } = await supabase.from("payments").select("*").eq("project_id", id).order("created_at", { ascending: true });
-      if (data) setPayments(data);
+      if (data) {
+        setPayments(data);
+        await syncToGoogleSheets(data);
+      }
     }
     setAddingPayment(false);
   }
@@ -213,7 +216,9 @@ export default function ProjectDetail({ params }: { params: Promise<{ id: string
     if (!error) {
       toast.success("Đã xóa đợt thanh toán");
       if (user && profile) await logActivity(user.id, profile.display_name || "Admin", "đã xóa thanh toán", formatVND(amt));
-      setPayments(prev => prev.filter(p => p.id !== payId));
+      const remainingPayments = payments.filter(p => p.id !== payId);
+      setPayments(remainingPayments);
+      await syncToGoogleSheets(remainingPayments);
     }
   }
 
@@ -258,10 +263,48 @@ export default function ProjectDetail({ params }: { params: Promise<{ id: string
     }, 100);
   };
 
+  /* Zalo deep link */
+  const handleZaloShare = () => {
+    if (!project) return;
+    const host = typeof window !== "undefined" ? window.location.origin : "http://localhost:3000";
+    const trackingLink = project.share_token ? `${host}/tracking/${project.share_token}` : `${host}/project/${project.id}`;
+    const text = `Xin chào ${project.customer_name}, hồ sơ dịch vụ "${project.service_type || 'Pháp lý'}" của bạn tại GSLaw hiện có trạng thái: [${project.status || 'Đang xử lý'}]. Bạn có thể theo dõi tiến độ chi tiết thời gian thực tại đây: ${trackingLink}`;
+    const url = `https://zalo.me/?text=${encodeURIComponent(text)}`;
+    window.open(url, "_blank");
+  };
+
+  /* Google Sheets sync helper */
+  async function syncToGoogleSheets(customPayments?: Payment[]) {
+    if (!project) return;
+    const currentPayments = customPayments || payments;
+    const paid_amount = currentPayments.reduce((acc, p) => acc + p.amount, 0);
+    try {
+      const response = await fetch("/api/sync-sheets", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...project,
+          paid_amount
+        }),
+      });
+      const res = await response.json();
+      if (!res.success) {
+        console.warn("Sheets sync warning:", res.message);
+      } else {
+        console.log("Successfully synced to Google Sheets!");
+      }
+    } catch (err) {
+      console.error("Failed to sync to Google Sheets:", err);
+    }
+  }
+
   const extraRight = (
     <>
       <button onClick={handleGenerateLink} title="Chia sẻ khách hàng" style={{ ...btnNavStyle, background: "#3b82f6" }}>
         <LinkIcon size={15} /> Tracking
+      </button>
+      <button onClick={handleZaloShare} title="Gửi Zalo" style={{ ...btnNavStyle, background: "#0284c7" }}>
+        <MessageSquare size={15} /> Gửi Zalo
       </button>
       <button onClick={() => window.print()} title="In Báo Cáo" style={btnNavStyle}>
         <Printer size={15} /> In Báo Cáo

@@ -4,8 +4,9 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import {
   Briefcase, Wallet, Clock, Search, Plus, Trash2,
-  Scale, TrendingUp, AlertCircle, Eye
+  Scale, TrendingUp, AlertCircle, Eye, LogOut
 } from "lucide-react";
+import { toast } from "sonner";
 
 /* ─── Types ─────────────────────────────────────────── */
 interface HoSo {
@@ -96,7 +97,10 @@ export default function GSLawDashboard() {
 
   /* add */
   async function handleAdd() {
-    if (!tenKhach.trim()) return alert("Vui lòng nhập tên khách hàng");
+    if (!tenKhach.trim()) {
+      toast.warning("Vui lòng nhập tên khách hàng");
+      return;
+    }
     setAdding(true);
     const { error } = await supabase.from("projects").insert([{
       customer_name: tenKhach.trim(),
@@ -104,8 +108,13 @@ export default function GSLawDashboard() {
       partner_name:  nguoiGioiThieu.trim() || null,
       total_amount:  soTien ? Number(soTien) : null,
     }]);
-    if (error) alert("Lỗi: " + error.message);
-    else { setTenKhach(""); setDichVu(""); setNguoiGioiThieu(""); setSoTien(""); await fetchData(); }
+    if (error) {
+      toast.error("Lỗi khi thêm hồ sơ", { description: error.message });
+    } else { 
+      toast.success("Thêm hồ sơ thành công!");
+      setTenKhach(""); setDichVu(""); setNguoiGioiThieu(""); setSoTien(""); 
+      await fetchData(); 
+    }
     setAdding(false);
   }
 
@@ -113,16 +122,29 @@ export default function GSLawDashboard() {
   async function handleDelete(id: string | number, name: string) {
     if (!confirm(`Xóa hồ sơ "${name}"?\nHành động này không thể hoàn tác.`)) return;
     const { error } = await supabase.from("projects").delete().eq("id", id);
-    if (error) alert("Lỗi: " + error.message);
-    else await fetchData();
+    if (error) {
+      toast.error("Lỗi khi xóa", { description: error.message });
+    } else {
+      toast.success("Đã xóa hồ sơ " + name);
+      await fetchData();
+    }
   }
 
   /* status update */
   async function handleStatus(id: string | number, val: string) {
     const { error } = await supabase.from("projects").update({ status: val }).eq("id", id);
-    if (error) alert("Lỗi: " + error.message);
-    else setHoso(prev => prev.map(h => h.id === id ? { ...h, status: val } : h));
+    if (error) {
+      toast.error("Lỗi cập nhật trạng thái", { description: error.message });
+    } else {
+      toast.success("Đã cập nhật trạng thái thành: " + val);
+      setHoso(prev => prev.map(h => h.id === id ? { ...h, status: val } : h));
+    }
   }
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    toast.info("Đã đăng xuất");
+  };
 
   /* computed */
   const totalDoanhThu = hoso.reduce((s, h) => s + (Number(h.total_amount) || 0), 0);
@@ -140,14 +162,30 @@ export default function GSLawDashboard() {
       <header style={{
         background: "linear-gradient(135deg, #0f2044 0%, #1e3a6e 100%)",
         padding: "0 32px",
-        display: "flex", alignItems: "center", gap: 12, height: 64,
+        display: "flex", alignItems: "center", justifyContent: "space-between", height: 64,
         boxShadow: "0 2px 12px rgba(0,0,0,.18)",
       }}>
-        <Scale size={24} color="#60a5fa" strokeWidth={2} />
-        <span style={{ fontSize: 18, fontWeight: 700, color: "#fff", letterSpacing: ".3px" }}>
-          GSLaw Flow
-        </span>
-        <span style={{ fontSize: 13, color: "#93c5fd", marginLeft: 4 }}>— Hệ thống Quản lý Hồ sơ</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <Scale size={24} color="#60a5fa" strokeWidth={2} />
+          <span style={{ fontSize: 18, fontWeight: 700, color: "#fff", letterSpacing: ".3px" }}>
+            GSLaw Flow
+          </span>
+          <span style={{ fontSize: 13, color: "#93c5fd", marginLeft: 4, display: "none" }}>— Hệ thống Quản lý Hồ sơ</span>
+        </div>
+        
+        <button
+          onClick={handleLogout}
+          title="Đăng xuất"
+          style={{
+            background: "rgba(255,255,255,0.1)", border: "none", color: "#fff",
+            padding: "8px 12px", borderRadius: 8, display: "flex", alignItems: "center", gap: 6,
+            fontSize: 13, fontWeight: 600, cursor: "pointer", transition: "background 0.2s"
+          }}
+          onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.2)"}
+          onMouseLeave={e => e.currentTarget.style.background = "rgba(255,255,255,0.1)"}
+        >
+          <LogOut size={15} /> <span style={{ display: "none" }}>Đăng xuất</span>
+        </button>
       </header>
 
       <main style={{ maxWidth: 1200, margin: "0 auto", padding: "32px 24px" }}>

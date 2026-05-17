@@ -5,8 +5,9 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { 
   ArrowLeft, Briefcase, Calendar, User, Wallet, 
-  MessageSquare, Plus, Clock, AlertCircle 
+  MessageSquare, Plus, Clock, AlertCircle, LogOut 
 } from "lucide-react";
+import { toast } from "sonner";
 
 interface Project {
   id: string;
@@ -41,6 +42,11 @@ export default function ProjectDetail({ params }: { params: Promise<{ id: string
   const [error, setError] = useState<string | null>(null);
   const [newNote, setNewNote] = useState("");
   const [addingNote, setAddingNote] = useState(false);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    toast.info("Đã đăng xuất");
+  };
 
   async function fetchDetails() {
     setLoading(true);
@@ -93,11 +99,12 @@ export default function ProjectDetail({ params }: { params: Promise<{ id: string
 
     if (error) {
       if (error.code === "PGRST205" || error.code === "42P01") {
-        alert("Lỗi: Bảng 'project_notes' chưa tồn tại. Vui lòng chạy lệnh SQL trên Supabase.");
+        toast.error("Lỗi bảng dữ liệu", { description: "Bảng 'project_notes' chưa tồn tại. Vui lòng chạy lệnh SQL trên Supabase." });
       } else {
-        alert("Lỗi khi thêm ghi chú: " + error.message);
+        toast.error("Lỗi khi thêm ghi chú", { description: error.message });
       }
     } else {
+      toast.success("Đã lưu ghi chú!");
       setNewNote("");
       // Lấy lại danh sách ghi chú để hiển thị ghi chú mới nhất
       const { data } = await supabase
@@ -128,25 +135,41 @@ export default function ProjectDetail({ params }: { params: Promise<{ id: string
       <header style={{
         background: "linear-gradient(135deg, #0f2044 0%, #1e3a6e 100%)",
         padding: "0 32px",
-        display: "flex", alignItems: "center", gap: 16, height: 64,
+        display: "flex", alignItems: "center", justifyContent: "space-between", height: 64,
         boxShadow: "0 2px 12px rgba(0,0,0,.18)",
       }}>
-        <button 
-          onClick={() => router.push("/")}
-          style={{ 
-            background: "rgba(255,255,255,0.1)", border: "none", color: "#fff", 
-            width: 36, height: 36, borderRadius: "50%", display: "flex", 
-            alignItems: "center", justifyContent: "center", cursor: "pointer",
-            transition: "background 0.2s"
+        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+          <button 
+            onClick={() => router.push("/")}
+            style={{ 
+              background: "rgba(255,255,255,0.1)", border: "none", color: "#fff", 
+              width: 36, height: 36, borderRadius: "50%", display: "flex", 
+              alignItems: "center", justifyContent: "center", cursor: "pointer",
+              transition: "background 0.2s"
+            }}
+            onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.2)"}
+            onMouseLeave={e => e.currentTarget.style.background = "rgba(255,255,255,0.1)"}
+          >
+            <ArrowLeft size={18} />
+          </button>
+          <span style={{ fontSize: 18, fontWeight: 700, color: "#fff", letterSpacing: ".3px" }}>
+            Chi tiết Hồ sơ
+          </span>
+        </div>
+
+        <button
+          onClick={handleLogout}
+          title="Đăng xuất"
+          style={{
+            background: "rgba(255,255,255,0.1)", border: "none", color: "#fff",
+            padding: "8px 12px", borderRadius: 8, display: "flex", alignItems: "center", gap: 6,
+            fontSize: 13, fontWeight: 600, cursor: "pointer", transition: "background 0.2s"
           }}
           onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.2)"}
           onMouseLeave={e => e.currentTarget.style.background = "rgba(255,255,255,0.1)"}
         >
-          <ArrowLeft size={18} />
+          <LogOut size={15} /> <span style={{ display: "none" }}>Đăng xuất</span>
         </button>
-        <span style={{ fontSize: 18, fontWeight: 700, color: "#fff", letterSpacing: ".3px" }}>
-          Chi tiết Hồ sơ
-        </span>
       </header>
 
       <main style={{ maxWidth: 1000, margin: "0 auto", padding: "32px 24px", display: "grid", gridTemplateColumns: "1fr 350px", gap: 24 }}>

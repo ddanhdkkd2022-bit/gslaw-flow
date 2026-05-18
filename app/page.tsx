@@ -176,6 +176,16 @@ export default function GSLawDashboard() {
   const [employees, setEmployees]       = useState<{ id: string; display_name: string | null; role: string }[]>([]);
   const [filterEmployee, setFilterEmployee] = useState("");
 
+  /* schema warning state */
+  const [isSchemaOutdated, setIsSchemaOutdated] = useState(false);
+
+  const handleCopySQL = () => {
+    const sql = `ALTER TABLE public.projects ADD COLUMN IF NOT EXISTS created_by UUID REFERENCES auth.users(id) DEFAULT auth.uid();
+NOTIFY pgrst, reload_schema;`;
+    navigator.clipboard.writeText(sql);
+    toast.success("Đã sao chép mã SQL vào clipboard!");
+  };
+
   /* sync to Google Sheets helper */
   async function syncToGoogleSheets(projectData: HoSo) {
     try {
@@ -219,6 +229,11 @@ export default function GSLawDashboard() {
         paid_amount: payMap[p.id] || 0
       }));
 
+      // Proactively detect if created_by column is missing from schema
+      if (projData && projData.length > 0 && !('created_by' in projData[0])) {
+        setIsSchemaOutdated(true);
+      }
+
       setHoso(mapped);
       setError(null);
     }
@@ -240,7 +255,9 @@ export default function GSLawDashboard() {
   async function handleAdd() {
     if (!tenKhach.trim()) { toast.warning("Vui lòng nhập tên khách hàng"); return; }
     setAdding(true);
-    const { data, error } = await supabase.from("projects").insert([{
+    
+    // Try inserting with created_by column first
+    let { data, error } = await supabase.from("projects").insert([{
       customer_name: tenKhach.trim(),
       customer_phone: soDienThoai.trim() || null,
       service_type: dichVu.trim() || null,
@@ -250,6 +267,29 @@ export default function GSLawDashboard() {
       priority: doUuTien,
       created_by: user?.id
     }]).select().single();
+
+    // Catch missing column error PGRST204 and degrade gracefully
+    if (error && (error.code === "PGRST204" || error.message?.includes("created_by"))) {
+      console.warn("Supabase schema is missing 'created_by' column. Falling back to regular insert.");
+      setIsSchemaOutdated(true);
+      
+      const retryResult = await supabase.from("projects").insert([{
+        customer_name: tenKhach.trim(),
+        customer_phone: soDienThoai.trim() || null,
+        service_type: dichVu.trim() || null,
+        partner_name: nguoiGioiThieu.trim() || null,
+        total_amount: soTien ? Number(soTien) : null,
+        due_date: hanChot || null,
+        priority: doUuTien
+      }]).select().single();
+      
+      data = retryResult.data;
+      error = retryResult.error;
+      
+      if (!error) {
+        toast.info("Đã lưu hồ sơ thành công (Chế độ tương thích). Vui lòng cập nhật Schema bảo mật.");
+      }
+    }
 
     if (error) {
       toast.error("Lỗi khi thêm hồ sơ", { description: error.message });
@@ -370,6 +410,27 @@ export default function GSLawDashboard() {
       <Header title="GSLaw Flow" showActions={true} />
 
       <main className="max-w-[1400px] mx-auto p-6 md:p-8 flex flex-col gap-6">
+
+        {/* Schema Outdated Warning Component */}
+        {isSchemaOutdated && (
+          <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
+            <div className="flex gap-3">
+              <AlertCircle className="text-amber-600 dark:text-amber-500 shrink-0 mt-0.5" size={20} />
+              <div>
+                <h4 className="text-sm font-bold text-amber-900 dark:text-amber-400">Yêu cầu thiết lập Bảo mật dữ liệu</h4>
+                <p className="text-xs text-amber-700 dark:text-amber-500 mt-1 leading-relaxed">
+                  Cơ sở dữ liệu Supabase chưa được cập nhật cấu trúc cột mới. Vui lòng bấm sao chép và chạy lệnh SQL cập nhật để kích hoạt tính năng cô lập dữ liệu theo nhân viên.
+                </p>
+              </div>
+            </div>
+            <button 
+              onClick={handleCopySQL} 
+              className="bg-amber-600 hover:bg-amber-700 dark:bg-amber-500/20 dark:hover:bg-amber-500/30 text-white dark:text-amber-400 border-none rounded-lg px-4 py-2 text-xs font-semibold cursor-pointer shadow-sm transition-all self-start sm:self-center whitespace-nowrap"
+            >
+              Copy Mã SQL
+            </button>
+          </div>
+        )}
 
         {/* ── STAT CARDS ── */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

@@ -181,7 +181,7 @@ export default function GSLawDashboard() {
 
   const handleCopySQL = () => {
     const sql = `ALTER TABLE public.projects ADD COLUMN IF NOT EXISTS created_by UUID REFERENCES auth.users(id) DEFAULT auth.uid();
-NOTIFY pgrst, reload_schema;`;
+NOTIFY pgrst, 'reload_schema';`;
     navigator.clipboard.writeText(sql);
     toast.success("Đã sao chép mã SQL vào clipboard!");
   };

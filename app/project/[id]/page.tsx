@@ -8,7 +8,7 @@ import {
   MessageSquare, Plus, Clock, AlertCircle, LogOut,
   FileText, Download, Trash2, UploadCloud, Loader2,
   CheckSquare, Check, Link as LinkIcon, Printer, CreditCard,
-  FileDown
+  FileDown, Pencil, X
 } from "lucide-react";
 import { toast } from "sonner";
 import Header from "@/components/Header";
@@ -25,6 +25,9 @@ interface Project {
   total_amount: number | null;
   created_at: string | null;
   share_token: string | null;
+  due_date?: string | null;
+  priority?: string | null;
+  created_by?: string | null;
 }
 
 interface Note { id: string; note_content: string; created_at: string; }
@@ -72,6 +75,19 @@ export default function ProjectDetail({ params }: { params: Promise<{ id: string
   const [newPaymentNote, setNewPaymentNote] = useState("");
   const [addingPayment, setAddingPayment] = useState(false);
 
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [savingEdit, setSavingEdit]           = useState(false);
+
+  /* edit form state */
+  const [tenKhach, setTenKhach]               = useState("");
+  const [soDienThoai, setSoDienThoai]         = useState("");
+  const [dichVu, setDichVu]                   = useState("");
+  const [nguoiGioiThieu, setNguoiGioiThieu]   = useState("");
+  const [soTien, setSoTien]                   = useState("");
+  const [hanChot, setHanChot]                 = useState("");
+  const [doUuTien, setDoUuTien]               = useState("Trung bình");
+  const [trangThai, setTrangThai]             = useState("Đang chờ");
+
   async function fetchDetails() {
     setLoading(true);
     // 1. Dự án
@@ -106,6 +122,59 @@ export default function ProjectDetail({ params }: { params: Promise<{ id: string
   async function fetchFiles() {
     const { data } = await supabase.storage.from('project-documents').list(id);
     if (data) setFiles(data.filter(f => f.name !== ".emptyFolderPlaceholder"));
+  }
+
+  function openEditModal() {
+    if (!project) return;
+    setTenKhach(project.customer_name);
+    setSoDienThoai(project.customer_phone || "");
+    setDichVu(project.service_type || "");
+    setNguoiGioiThieu(project.partner_name || "");
+    setSoTien(project.total_amount ? String(project.total_amount) : "");
+    setHanChot(project.due_date || "");
+    setDoUuTien(project.priority || "Trung bình");
+    setTrangThai(project.status || "Đang chờ");
+    setIsEditModalOpen(true);
+  }
+
+  async function handleEdit() {
+    if (!project) return;
+    if (!tenKhach.trim()) { toast.warning("Vui lòng nhập tên khách hàng"); return; }
+    setSavingEdit(true);
+    
+    try {
+      const { data, error } = await supabase.from("projects").update({
+        customer_name: tenKhach.trim(),
+        customer_phone: soDienThoai.trim() || null,
+        service_type: dichVu.trim() || null,
+        partner_name: nguoiGioiThieu.trim() || null,
+        total_amount: soTien ? Number(soTien) : null,
+        due_date: hanChot || null,
+        priority: doUuTien,
+        status: trangThai,
+        created_by: user?.id
+      }).eq("id", id).select().single();
+
+      if (error) throw error;
+
+      toast.success("Cập nhật hồ sơ thành công!");
+      if (user && profile) {
+        await logActivity(user.id, profile.display_name || "Nhân viên", "đã chỉnh sửa hồ sơ", tenKhach.trim());
+      }
+      
+      setProject(data);
+      setIsEditModalOpen(false);
+      
+      // Sync real-time to Sheets using the updated project data
+      await syncToGoogleSheets(undefined, data);
+      
+      await fetchDetails();
+    } catch (err: any) {
+      toast.error("Lỗi khi chỉnh sửa hồ sơ", { description: err.message });
+      console.error(err);
+    } finally {
+      setSavingEdit(false);
+    }
   }
 
   useEffect(() => { if (id) fetchDetails(); }, [id]);
@@ -274,8 +343,9 @@ export default function ProjectDetail({ params }: { params: Promise<{ id: string
   };
 
   /* Google Sheets sync helper */
-  async function syncToGoogleSheets(customPayments?: Payment[]) {
-    if (!project) return;
+  async function syncToGoogleSheets(customPayments?: Payment[], updatedProject?: Project) {
+    const activeProject = updatedProject || project;
+    if (!activeProject) return;
     const currentPayments = customPayments || payments;
     const paid_amount = currentPayments.reduce((acc, p) => acc + p.amount, 0);
     try {
@@ -283,7 +353,7 @@ export default function ProjectDetail({ params }: { params: Promise<{ id: string
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          ...project,
+          ...activeProject,
           paid_amount
         }),
       });
@@ -312,6 +382,9 @@ export default function ProjectDetail({ params }: { params: Promise<{ id: string
       <button onClick={() => handleExportContract("hop-dong")} title="Tạo Hợp Đồng" style={{ ...btnNavStyle, background: "#10b981" }}>
         <FileDown size={15} /> Tạo HĐ
       </button>
+      <button onClick={openEditModal} title="Sửa hồ sơ" style={{ ...btnNavStyle, background: "#f59e0b" }}>
+        <Pencil size={15} /> Sửa hồ sơ
+      </button>
     </>
   );
 
@@ -337,9 +410,14 @@ export default function ProjectDetail({ params }: { params: Promise<{ id: string
           {/* PROJECT DETAILS */}
           {project && (
             <div style={{ background: "#fff", borderRadius: 16, border: "1px solid #e2e8f0", boxShadow: "0 4px 6px -1px rgba(0,0,0,.05)", overflow: "hidden" }}>
-              <div style={{ padding: "24px", borderBottom: "1px solid #f1f5f9" }}>
-                <h1 style={{ fontSize: 24, fontWeight: 800, color: "#0f172a", margin: "0 0 8px 0" }}>{project.customer_name}</h1>
-                <div style={{ display: "inline-block", background: "#eff6ff", color: "#1d4ed8", padding: "4px 12px", borderRadius: 20, fontSize: 13, fontWeight: 600 }}>Trạng thái: {project.status ?? "Chưa rõ"}</div>
+              <div style={{ padding: "24px", borderBottom: "1px solid #f1f5f9", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                <div>
+                  <h1 style={{ fontSize: 24, fontWeight: 800, color: "#0f172a", margin: "0 0 8px 0" }}>{project.customer_name}</h1>
+                  <div style={{ display: "inline-block", background: "#eff6ff", color: "#1d4ed8", padding: "4px 12px", borderRadius: 20, fontSize: 13, fontWeight: 600 }}>Trạng thái: {project.status ?? "Chưa rõ"}</div>
+                </div>
+                <button onClick={openEditModal} title="Sửa hồ sơ" className="hide-on-print" style={{ background: "#fef3c7", border: "1px solid #fde68a", color: "#d97706", display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer", transition: "all 0.2s" }}>
+                  <Pencil size={14} /> Sửa
+                </button>
               </div>
               <div style={{ padding: "24px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
                 <InfoItem icon={Briefcase} label="Dịch vụ" value={project.service_type} />
@@ -579,6 +657,54 @@ export default function ProjectDetail({ params }: { params: Promise<{ id: string
           * { -webkit-print-color-adjust: exact !important; color-adjust: exact !important; }
         }
       `}</style>
+
+      {/* ─── EDIT MODAL ─── */}
+      {isEditModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4" onClick={() => setIsEditModalOpen(false)}>
+          <div className="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-lg p-6 shadow-2xl flex flex-col gap-4 border border-slate-200 dark:border-slate-700" onClick={e => e.stopPropagation()}>
+            
+            <div className="flex justify-between items-center border-b border-slate-100 dark:border-slate-700 pb-3">
+              <span className="text-lg font-bold text-slate-900 dark:text-slate-100 font-sans">Chỉnh sửa hồ sơ</span>
+              <button onClick={() => setIsEditModalOpen(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors">
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div className="flex flex-col gap-3 max-h-[60vh] overflow-y-auto pr-1">
+              <div><label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1">Tên KH *</label><input type="text" placeholder="CÔNG TY..." value={tenKhach} onChange={e=>setTenKhach(e.target.value)} className="w-full px-3 py-2 bg-transparent border border-slate-300 dark:border-slate-600 rounded-lg text-sm outline-none focus:border-blue-500 transition-colors dark:text-slate-100" /></div>
+              <div><label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1">Số điện thoại</label><input type="text" placeholder="090..." value={soDienThoai} onChange={e=>setSoDienThoai(e.target.value)} className="w-full px-3 py-2 bg-transparent border border-slate-300 dark:border-slate-600 rounded-lg text-sm outline-none focus:border-blue-500 transition-colors dark:text-slate-100" /></div>
+              <div><label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1">Dịch vụ</label><input type="text" placeholder="Loại..." value={dichVu} onChange={e=>setDichVu(e.target.value)} className="w-full px-3 py-2 bg-transparent border border-slate-300 dark:border-slate-600 rounded-lg text-sm outline-none focus:border-blue-500 transition-colors dark:text-slate-100" /></div>
+              <div><label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1">Người GT</label><input type="text" placeholder="Tên..." value={nguoiGioiThieu} onChange={e=>setNguoiGioiThieu(e.target.value)} className="w-full px-3 py-2 bg-transparent border border-slate-300 dark:border-slate-600 rounded-lg text-sm outline-none focus:border-blue-500 transition-colors dark:text-slate-100" /></div>
+              <div><label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1">Giá trị (đ)</label><input type="number" placeholder="1000000" value={soTien} onChange={e=>setSoTien(e.target.value)} className="w-full px-3 py-2 bg-transparent border border-slate-300 dark:border-slate-600 rounded-lg text-sm outline-none focus:border-blue-500 transition-colors dark:text-slate-100" /></div>
+              <div><label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1">Hạn chót</label><input type="date" value={hanChot} onChange={e=>setHanChot(e.target.value)} className="w-full px-3 py-2 bg-transparent border border-slate-300 dark:border-slate-600 rounded-lg text-sm outline-none focus:border-blue-500 transition-colors dark:text-slate-100" /></div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1">Ưu tiên</label>
+                <select value={doUuTien} onChange={e=>setDoUuTien(e.target.value)} className="w-full px-3 py-2 bg-transparent border border-slate-300 dark:border-slate-600 rounded-lg text-sm outline-none focus:border-blue-500 transition-colors dark:text-slate-100 [&>option]:bg-white dark:[&>option]:bg-slate-800">
+                  <option value="Thường">Thường (Xanh)</option>
+                  <option value="Trung bình">Trung bình (Vàng)</option>
+                  <option value="Gấp">Gấp (Đỏ)</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1">Trạng thái</label>
+                <select value={trangThai} onChange={e=>setTrangThai(e.target.value)} className="w-full px-3 py-2 bg-transparent border border-slate-300 dark:border-slate-600 rounded-lg text-sm outline-none focus:border-blue-500 transition-colors dark:text-slate-100 [&>option]:bg-white dark:[&>option]:bg-slate-800">
+                  <option value="Đang chờ">Đang chờ</option>
+                  <option value="Đang làm">Đang làm</option>
+                  <option value="Cần bổ sung">Cần bổ sung</option>
+                  <option value="Hoàn thành">Hoàn thành</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 mt-2">
+              <button onClick={() => setIsEditModalOpen(false)} className="px-4 py-2 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-semibold text-sm rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors">Hủy</button>
+              <button onClick={handleEdit} disabled={savingEdit} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm rounded-lg disabled:opacity-50 transition-colors">
+                {savingEdit ? "Đang lưu..." : "Lưu thay đổi"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

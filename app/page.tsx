@@ -5,7 +5,7 @@ import { supabase } from "@/lib/supabase";
 import {
   Briefcase, Wallet, Clock, Search, Plus, Trash2,
   TrendingUp, AlertCircle, Eye, Download, Filter,
-  Calendar as CalendarIcon, LayoutGrid, List, X
+  Calendar as CalendarIcon, LayoutGrid, List, X, Pencil
 } from "lucide-react";
 import { toast } from "sonner";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, Legend } from "recharts";
@@ -155,6 +155,7 @@ export default function GSLawDashboard() {
 
   const [viewMode, setViewMode] = useState<"table" | "kanban" | "calendar">("table");
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [editingProject, setEditingProject] = useState<HoSo | null>(null);
 
   /* form state */
   const [tenKhach, setTenKhach]               = useState("");
@@ -311,6 +312,74 @@ NOTIFY pgrst, 'reload_schema';`;
       await fetchData(); 
     }
     setAdding(false);
+  }
+
+  function resetForm() {
+    setTenKhach("");
+    setSoDienThoai("");
+    setDichVu("");
+    setNguoiGioiThieu("");
+    setSoTien("");
+    setHanChot("");
+    setDoUuTien("Trung bình");
+    setEditingProject(null);
+  }
+
+  function openEditModal(project: HoSo) {
+    setEditingProject(project);
+    setTenKhach(project.customer_name);
+    setSoDienThoai(project.customer_phone || "");
+    setDichVu(project.service_type || "");
+    setNguoiGioiThieu(project.partner_name || "");
+    setSoTien(project.total_amount ? String(project.total_amount) : "");
+    setHanChot(project.due_date || "");
+    setDoUuTien(project.priority || "Trung bình");
+    setIsAddModalOpen(true);
+  }
+
+  async function handleEdit() {
+    if (!editingProject) return;
+    if (!tenKhach.trim()) { toast.warning("Vui lòng nhập tên khách hàng"); return; }
+    setAdding(true);
+    
+    try {
+      const { data, error } = await supabase.from("projects").update({
+        customer_name: tenKhach.trim(),
+        customer_phone: soDienThoai.trim() || null,
+        service_type: dichVu.trim() || null,
+        partner_name: nguoiGioiThieu.trim() || null,
+        total_amount: soTien ? Number(soTien) : null,
+        due_date: hanChot || null,
+        priority: doUuTien,
+        created_by: user?.id
+      }).eq("id", editingProject.id).select().single();
+
+      if (error) throw error;
+
+      toast.success("Cập nhật hồ sơ thành công!");
+      if (user && profile) {
+        await logActivity(user.id, profile.display_name || "Nhân viên", "đã chỉnh sửa hồ sơ", tenKhach.trim());
+      }
+      
+      resetForm();
+      setIsAddModalOpen(false);
+      
+      // Sync real-time to Sheets
+      if (data) {
+        const paid_amount = editingProject.paid_amount || 0;
+        await syncToGoogleSheets({
+          ...data,
+          paid_amount
+        });
+      }
+      
+      await fetchData();
+    } catch (err: any) {
+      toast.error("Lỗi khi chỉnh sửa hồ sơ", { description: err.message });
+      console.error(err);
+    } finally {
+      setAdding(false);
+    }
   }
 
   /* delete */
@@ -581,6 +650,7 @@ NOTIFY pgrst, 'reload_schema';`;
                               <div className="flex gap-2 justify-center">
                                 <button onClick={() => handleZaloShare(item)} title="Gửi Zalo" className="px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white border-none rounded text-[11px] font-semibold cursor-pointer shadow-sm transition-colors">Zalo</button>
                                 <button onClick={() => router.push(`/project/${item.id}`)} title="Xem" className="p-1.5 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded-md hover:bg-blue-100 dark:hover:bg-blue-500/20 transition-colors"><Eye size={14} /></button>
+                                <button onClick={() => openEditModal(item)} title="Sửa" className="p-1.5 bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 rounded-md hover:bg-amber-100 dark:hover:bg-amber-500/20 transition-colors"><Pencil size={14} /></button>
                                 {isAdmin && <button onClick={() => handleDelete(item.id, item.customer_name)} title="Xóa" className="p-1.5 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 rounded-md hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-colors"><Trash2 size={14} /></button>}
                               </div>
                             </td>
@@ -673,12 +743,14 @@ NOTIFY pgrst, 'reload_schema';`;
 
       {/* ─── ADD NEW RECORD MODAL ─── */}
       {isAddModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4" onClick={() => setIsAddModalOpen(false)}>
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4" onClick={() => { setIsAddModalOpen(false); resetForm(); }}>
           <div className="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-lg p-6 shadow-2xl flex flex-col gap-4 border border-slate-200 dark:border-slate-700" onClick={e => e.stopPropagation()}>
             
             <div className="flex justify-between items-center border-b border-slate-100 dark:border-slate-700 pb-3">
-              <span className="text-lg font-bold text-slate-900 dark:text-slate-100">Thêm hồ sơ mới</span>
-              <button onClick={() => setIsAddModalOpen(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors">
+              <span className="text-lg font-bold text-slate-900 dark:text-slate-100">
+                {editingProject ? "Chỉnh sửa hồ sơ" : "Thêm hồ sơ mới"}
+              </span>
+              <button onClick={() => { setIsAddModalOpen(false); resetForm(); }} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors">
                 <X size={20} />
               </button>
             </div>
@@ -701,9 +773,9 @@ NOTIFY pgrst, 'reload_schema';`;
             </div>
 
             <div className="flex justify-end gap-3 mt-2">
-              <button onClick={() => setIsAddModalOpen(false)} className="px-4 py-2 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-semibold text-sm rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors">Hủy</button>
-              <button onClick={handleAdd} disabled={adding} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm rounded-lg disabled:opacity-50 transition-colors">
-                {adding ? "Đang lưu..." : "Thêm"}
+              <button onClick={() => { setIsAddModalOpen(false); resetForm(); }} className="px-4 py-2 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-semibold text-sm rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors">Hủy</button>
+              <button onClick={editingProject ? handleEdit : handleAdd} disabled={adding} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm rounded-lg disabled:opacity-50 transition-colors">
+                {adding ? "Đang lưu..." : (editingProject ? "Lưu thay đổi" : "Thêm")}
               </button>
             </div>
           </div>

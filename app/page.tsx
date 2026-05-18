@@ -42,6 +42,7 @@ interface HoSo {
   created_at: string | null;
   due_date: string | null;
   share_token?: string | null;
+  created_by?: string | null;
 }
 
 /* ─── Status config ─────────────────────────────────── */
@@ -170,6 +171,10 @@ export default function GSLawDashboard() {
   const [filterPartner, setFilterPartner]= useState("");
   const [dateFrom, setDateFrom]         = useState("");
   const [dateTo, setDateTo]             = useState("");
+  
+  /* new employee filter state */
+  const [employees, setEmployees]       = useState<{ id: string; display_name: string | null; role: string }[]>([]);
+  const [filterEmployee, setFilterEmployee] = useState("");
 
   /* sync to Google Sheets helper */
   async function syncToGoogleSheets(projectData: HoSo) {
@@ -217,10 +222,19 @@ export default function GSLawDashboard() {
       setHoso(mapped);
       setError(null);
     }
+
+    // Fetch profiles if Admin to populate employee filter dropdown
+    if (isAdmin) {
+      const { data: profData } = await supabase.from("profiles").select("id, display_name, role");
+      if (profData) {
+        setEmployees(profData);
+      }
+    }
+
     setLoading(false);
   }
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => { fetchData(); }, [isAdmin]);
 
   /* add */
   async function handleAdd() {
@@ -233,7 +247,8 @@ export default function GSLawDashboard() {
       partner_name: nguoiGioiThieu.trim() || null,
       total_amount: soTien ? Number(soTien) : null,
       due_date: hanChot || null,
-      priority: doUuTien
+      priority: doUuTien,
+      created_by: user?.id
     }]).select().single();
 
     if (error) {
@@ -307,6 +322,7 @@ export default function GSLawDashboard() {
       if (search && !h.customer_name?.toLowerCase().includes(search.toLowerCase())) return false;
       if (filterStatus && h.status !== filterStatus) return false;
       if (filterPartner && h.partner_name !== filterPartner) return false;
+      if (isAdmin && filterEmployee && h.created_by !== filterEmployee) return false;
       if (dateFrom || dateTo) {
         if (!h.created_at) return false;
         const d = new Date(h.created_at).getTime();
@@ -315,7 +331,7 @@ export default function GSLawDashboard() {
       }
       return true;
     });
-  }, [hoso, search, filterStatus, filterPartner, dateFrom, dateTo]);
+  }, [hoso, search, filterStatus, filterPartner, filterEmployee, dateFrom, dateTo, isAdmin]);
 
   const uniquePartners = Array.from(new Set(hoso.map(h => h.partner_name).filter(Boolean))) as string[];
   const totalDoanhThu = filtered.reduce((s, h) => s + (Number(h.total_amount) || 0), 0);
@@ -391,6 +407,14 @@ export default function GSLawDashboard() {
                   <option value="">Nguồn GT</option>
                   {uniquePartners.map(p => <option key={p} value={p}>{p}</option>)}
                 </select>
+                {isAdmin && (
+                  <select value={filterEmployee} onChange={e=>setFilterEmployee(e.target.value)} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5 text-sm outline-none text-slate-900 dark:text-slate-100">
+                    <option value="">Xem theo nhân viên</option>
+                    {employees.map(emp => (
+                      <option key={emp.id} value={emp.id}>{emp.display_name || emp.role}</option>
+                    ))}
+                  </select>
+                )}
               </div>
 
               <div className="flex items-center gap-3 md:border-l border-slate-300 dark:border-slate-600 md:pl-4">
@@ -444,7 +468,15 @@ export default function GSLawDashboard() {
                             <td className="px-4 py-3 align-middle">
                               <div className="flex flex-col">
                                 <span className="font-bold text-slate-900 dark:text-slate-100 text-sm">{item.customer_name}</span>
-                                {item.customer_phone && <span className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{item.customer_phone}</span>}
+                                <div className="flex gap-2 items-center text-xs mt-0.5">
+                                  {item.customer_phone && <span className="text-slate-500 dark:text-slate-400">{item.customer_phone}</span>}
+                                  {item.customer_phone && isAdmin && <span className="text-slate-300 dark:text-slate-600">|</span>}
+                                  {isAdmin && (
+                                    <span className="text-slate-500 dark:text-slate-400 font-medium">
+                                      Phụ trách: {employees.find(e => e.id === item.created_by)?.display_name || "Chưa rõ"}
+                                    </span>
+                                  )}
+                                </div>
                               </div>
                             </td>
                             
@@ -522,7 +554,12 @@ export default function GSLawDashboard() {
                         <div key={item.id} onClick={() => router.push(`/project/${item.id}`)} className={`bg-white dark:bg-slate-900 rounded-xl border p-4 shadow-sm cursor-pointer transition-transform hover:-translate-y-0.5 relative ${warn ? 'border-red-300 dark:border-red-500/50' : 'border-slate-200 dark:border-slate-700'}`}>
                           {warn && <div className="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center shadow-sm"><AlertCircle size={12}/></div>}
                           
-                          <div className="text-sm font-bold text-slate-900 dark:text-slate-100 mb-2 break-words">{item.customer_name}</div>
+                          <div className="text-sm font-bold text-slate-900 dark:text-slate-100 mb-1 break-words">{item.customer_name}</div>
+                          {isAdmin && (
+                            <div className="text-[11px] text-slate-500 dark:text-slate-400 mb-2 font-medium">
+                              Phụ trách: {employees.find(e => e.id === item.created_by)?.display_name || "Chưa rõ"}
+                            </div>
+                          )}
                           
                           <div className="flex gap-1.5 mb-3 flex-wrap">
                             {item.service_type && <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-semibold border ${getServiceBadgeStyle(item.service_type)}`}>{item.service_type}</span>}

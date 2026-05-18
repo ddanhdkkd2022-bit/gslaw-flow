@@ -43,6 +43,10 @@ interface HoSo {
   due_date: string | null;
   share_token?: string | null;
   created_by?: string | null;
+  profiles?: {
+    full_name?: string | null;
+    display_name?: string | null;
+  } | null;
 }
 
 /* ─── Status config ─────────────────────────────────── */
@@ -210,7 +214,31 @@ NOTIFY pgrst, 'reload_schema';`;
   /* fetch */
   async function fetchData() {
     setLoading(true);
-    const { data: projData, error: projError } = await supabase.from("projects").select("*").order("created_at", { ascending: false });
+    
+    let projData: any[] | null = null;
+    let projError: any = null;
+
+    try {
+      const res = await supabase
+        .from("projects")
+        .select("*, profiles:created_by(full_name, display_name)")
+        .order("created_at", { ascending: false });
+      
+      if (res.error) {
+        console.warn("Join query failed, falling back to simple query:", res.error.message);
+        const fallbackRes = await supabase.from("projects").select("*").order("created_at", { ascending: false });
+        projData = fallbackRes.data;
+        projError = fallbackRes.error;
+      } else {
+        projData = res.data;
+      }
+    } catch (err: any) {
+      console.warn("Exception in join query, falling back:", err);
+      const fallbackRes = await supabase.from("projects").select("*").order("created_at", { ascending: false });
+      projData = fallbackRes.data;
+      projError = fallbackRes.error;
+    }
+
     const { data: payData } = await supabase.from("payments").select("project_id, amount");
 
     if (projError) {
@@ -256,6 +284,13 @@ NOTIFY pgrst, 'reload_schema';`;
   /* add */
   async function handleAdd() {
     if (!tenKhach.trim()) { toast.warning("Vui lòng nhập tên khách hàng"); return; }
+    
+    const creatorId = user?.id;
+    if (!creatorId) {
+      toast.error("Lỗi xác thực: Không tìm thấy thông tin tài khoản đăng nhập. Vui lòng đăng nhập lại.");
+      return;
+    }
+
     setAdding(true);
     
     // Try inserting with created_by column first
@@ -340,6 +375,13 @@ NOTIFY pgrst, 'reload_schema';`;
   async function handleEdit() {
     if (!editingProject) return;
     if (!tenKhach.trim()) { toast.warning("Vui lòng nhập tên khách hàng"); return; }
+    
+    const creatorId = user?.id;
+    if (!creatorId) {
+      toast.error("Lỗi xác thực: Không tìm thấy thông tin tài khoản đăng nhập. Vui lòng đăng nhập lại.");
+      return;
+    }
+
     setAdding(true);
     
     try {
@@ -578,6 +620,7 @@ NOTIFY pgrst, 'reload_schema';`;
                       <th className="px-4 py-3 font-semibold tracking-wider">Dịch vụ</th>
                       <th className="px-4 py-3 font-semibold tracking-wider">Ưu tiên</th>
                       <th className="px-4 py-3 font-semibold tracking-wider">Nguồn</th>
+                      {isAdmin && <th className="px-4 py-3 font-semibold tracking-wider">Người nhập</th>}
                       <th className="px-4 py-3 font-semibold tracking-wider">Hạn chót</th>
                       <th className="px-4 py-3 font-semibold tracking-wider">Trạng thái</th>
                       <th className="px-4 py-3 font-semibold tracking-wider text-right">Giá trị</th>
@@ -586,9 +629,9 @@ NOTIFY pgrst, 'reload_schema';`;
                   </thead>
                   <tbody>
                     {loading ? (
-                      <tr><td colSpan={8} className="text-center py-12 text-slate-400">Đang tải dữ liệu...</td></tr>
+                      <tr><td colSpan={isAdmin ? 9 : 8} className="text-center py-12 text-slate-400">Đang tải dữ liệu...</td></tr>
                     ) : filtered.length === 0 ? (
-                      <tr><td colSpan={8} className="text-center py-12 text-slate-400">Không tìm thấy hồ sơ phù hợp</td></tr>
+                      <tr><td colSpan={isAdmin ? 9 : 8} className="text-center py-12 text-slate-400">Không tìm thấy hồ sơ phù hợp</td></tr>
                     ) : (
                       filtered.map((item) => {
                         const warn = isWarning(item.due_date, item.status);
@@ -620,6 +663,12 @@ NOTIFY pgrst, 'reload_schema';`;
                             </td>
 
                             <td className="px-4 py-3 align-middle text-slate-500 dark:text-slate-400">{item.partner_name ?? "—"}</td>
+                            
+                            {isAdmin && (
+                              <td className="px-4 py-3 align-middle text-slate-900 dark:text-slate-100 font-medium">
+                                {item.profiles?.full_name || item.profiles?.display_name || employees.find(e => e.id === item.created_by)?.display_name || "Chưa rõ"}
+                              </td>
+                            )}
                             
                             <td className={`px-4 py-3 align-middle whitespace-nowrap ${warn ? 'text-red-600 dark:text-red-400 font-bold' : 'text-slate-500 dark:text-slate-400'}`}>
                               <div className="flex items-center gap-1.5">{formatDate(item.due_date)}{warn && <AlertCircle size={14} className="text-red-500" />}</div>

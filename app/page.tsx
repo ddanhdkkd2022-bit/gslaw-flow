@@ -49,6 +49,7 @@ interface HoSo {
   status: string | null;
   total_amount: number | null;
   paid_amount?: number;
+  expense_amount?: number;
   created_at: string | null;
   due_date: string | null;
   share_token?: string | null;
@@ -271,13 +272,21 @@ NOTIFY pgrst, 'reload_schema';`;
     }
 
     let payData: any[] | null = null;
+    let expData: any[] | null = null;
     if (!isAdmin && (!projData || projData.length === 0)) {
       payData = [];
+      expData = [];
     } else {
       let payQuery = supabase.from("payments").select("project_id, amount");
-      if (!isAdmin && projData) payQuery = payQuery.in("project_id", projData.map((p: any) => p.id));
-      const resPay = await payQuery;
+      let expQuery = supabase.from("transactions").select("project_id, amount").eq("type", "CHI");
+      if (!isAdmin && projData) {
+        const ids = projData.map((p: any) => p.id);
+        payQuery = payQuery.in("project_id", ids);
+        expQuery = expQuery.in("project_id", ids);
+      }
+      const [resPay, resExp] = await Promise.all([payQuery, expQuery]);
       payData = resPay.data;
+      expData = resExp.data;
     }
 
     if (projError) {
@@ -285,17 +294,22 @@ NOTIFY pgrst, 'reload_schema';`;
       setError(projError.message);
     } else {
       const payMap: Record<string, number> = {};
+      const expMap: Record<string, number> = {};
       if (payData) {
         payData.forEach(p => {
-          if (p.project_id) {
-            payMap[p.project_id] = (payMap[p.project_id] || 0) + (p.amount || 0);
-          }
+          if (p.project_id) payMap[p.project_id] = (payMap[p.project_id] || 0) + (p.amount || 0);
+        });
+      }
+      if (expData) {
+        expData.forEach(p => {
+          if (p.project_id) expMap[p.project_id] = (expMap[p.project_id] || 0) + (p.amount || 0);
         });
       }
 
       const mapped = (projData ?? []).map(p => ({
         ...p,
-        paid_amount: payMap[p.id] || 0
+        paid_amount: payMap[p.id] || 0,
+        expense_amount: expMap[p.id] || 0
       }));
 
       // Proactively detect if created_by column is missing from schema
@@ -735,13 +749,15 @@ NOTIFY pgrst, 'reload_schema';`;
                       <th className="px-4 py-3 font-semibold tracking-wider">Hạn chót</th>
                       <th className="px-4 py-3 font-semibold tracking-wider">Trạng thái</th>
                       <th className="px-4 py-3 font-semibold tracking-wider text-right">Giá trị</th>
+                      <th className="px-4 py-3 font-semibold tracking-wider text-right">Đã chi</th>
+                      <th className="px-4 py-3 font-semibold tracking-wider text-right">Lợi nhuận</th>
                       <th className="px-4 py-3 font-semibold tracking-wider text-center">Thao tác</th>
                     </tr>
                   </thead>
                   <tbody>
                     {loading ? (
                       <tr>
-                        <td colSpan={isAdmin ? 9 : 8} className="text-center py-16">
+                        <td colSpan={isAdmin ? 11 : 10} className="text-center py-16">
                           <div className="flex flex-col items-center justify-center gap-3">
                             <Loader2 className="animate-spin text-blue-600 dark:text-blue-500" size={32} />
                             <span className="text-slate-500 dark:text-slate-400 font-medium">Đang tải dữ liệu...</span>
@@ -749,7 +765,7 @@ NOTIFY pgrst, 'reload_schema';`;
                         </td>
                       </tr>
                     ) : filtered.length === 0 ? (
-                      <tr><td colSpan={isAdmin ? 9 : 8} className="text-center py-12 text-slate-600 dark:text-slate-400 font-semibold">Không tìm thấy hồ sơ phù hợp</td></tr>
+                      <tr><td colSpan={isAdmin ? 11 : 10} className="text-center py-12 text-slate-600 dark:text-slate-400 font-semibold">Không tìm thấy hồ sơ phù hợp</td></tr>
                     ) : (
                       filtered.map((item) => {
                         const warn = isWarning(item.due_date, item.status);
@@ -811,6 +827,14 @@ NOTIFY pgrst, 'reload_schema';`;
                                   </>
                                 )}
                               </div>
+                            </td>
+
+                            <td className="px-4 py-3 align-middle text-right">
+                                <span className="font-bold text-rose-600 dark:text-rose-400">{formatVND(item.expense_amount || 0)}</span>
+                            </td>
+
+                            <td className="px-4 py-3 align-middle text-right">
+                                <span className="font-bold text-blue-600 dark:text-blue-400">{formatVND((item.paid_amount || 0) - (item.expense_amount || 0))}</span>
                             </td>
 
                             <td className="px-4 py-3 align-middle text-center">

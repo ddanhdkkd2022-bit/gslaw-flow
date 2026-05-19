@@ -75,6 +75,11 @@ export default function ProjectDetail({ params }: { params: Promise<{ id: string
   const [newPaymentNote, setNewPaymentNote] = useState("");
   const [addingPayment, setAddingPayment] = useState(false);
 
+  const [expenses, setExpenses] = useState<Payment[]>([]);
+  const [newExpenseAmount, setNewExpenseAmount] = useState("");
+  const [newExpenseNote, setNewExpenseNote] = useState("");
+  const [addingExpense, setAddingExpense] = useState(false);
+
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [savingEdit, setSavingEdit]           = useState(false);
 
@@ -108,6 +113,11 @@ export default function ProjectDetail({ params }: { params: Promise<{ id: string
     const { data: paymentsData, error: payError } = await supabase.from("payments").select("*").eq("project_id", id).order("created_at", { ascending: true });
     if (payError && payError.code !== "42P01") console.error(payError);
     if (paymentsData) setPayments(paymentsData);
+
+    // 4b. Expenses
+    const { data: expensesData, error: expError } = await supabase.from("transactions").select("*").eq("project_id", id).eq("type", "CHI").order("created_at", { ascending: true });
+    if (expError && expError.code !== "42P01") console.error(expError);
+    if (expensesData) setExpenses(expensesData);
 
     // 5. Files
     fetchFiles();
@@ -291,6 +301,35 @@ export default function ProjectDetail({ params }: { params: Promise<{ id: string
     }
   }
 
+  /* ─── Expenses ─── */
+  async function handleAddExpense() {
+    if (!newExpenseAmount || isNaN(Number(newExpenseAmount))) return;
+    setAddingExpense(true);
+    const amt = Number(newExpenseAmount);
+    const { error } = await supabase.from("transactions").insert([{ project_id: id, amount: amt, note: newExpenseNote, type: "CHI" }]);
+    if (error) {
+      if (error.code === "42P01") toast.error("Lỗi", { description: "Bảng 'transactions' chưa tạo. Chạy lệnh SQL để tạo bảng!" });
+      else toast.error("Lỗi ghi chi", { description: error.message });
+    } else {
+      toast.success("Đã ghi nhận chi phí!");
+      if (user && profile) await logActivity(user.id, profile.display_name || "User", "đã ghi nhận chi phí", formatVND(amt));
+      setNewExpenseAmount(""); setNewExpenseNote("");
+      const { data } = await supabase.from("transactions").select("*").eq("project_id", id).eq("type", "CHI").order("created_at", { ascending: true });
+      if (data) setExpenses(data);
+    }
+    setAddingExpense(false);
+  }
+
+  async function handleDeleteExpense(expId: string, amt: number) {
+    if (!isAdmin) return;
+    const { error } = await supabase.from("transactions").delete().eq("id", expId);
+    if (!error) {
+      toast.success("Đã xóa khoản chi");
+      if (user && profile) await logActivity(user.id, profile.display_name || "Admin", "đã xóa khoản chi", formatVND(amt));
+      setExpenses(prev => prev.filter(p => p.id !== expId));
+    }
+  }
+
   /* ─── Client Portal Link ─── */
   async function handleGenerateLink() {
     let token = project?.share_token;
@@ -458,6 +497,42 @@ export default function ProjectDetail({ params }: { params: Promise<{ id: string
                 <input id="new-payment-amount" aria-label="Số tiền thanh toán" type="number" value={newPaymentAmount} onChange={e=>setNewPaymentAmount(e.target.value)} placeholder="Số tiền (đ)..." style={{ width: 140, padding: "8px 12px", fontSize: 13, border: "1.5px solid #e2e8f0", borderRadius: 8, outline: "none" }} />
                 <input id="new-payment-note" aria-label="Ghi chú thanh toán" type="text" value={newPaymentNote} onChange={e=>setNewPaymentNote(e.target.value)} placeholder="Ghi chú (Tạm ứng...)" style={{ flex: 1, padding: "8px 12px", fontSize: 13, border: "1.5px solid #e2e8f0", borderRadius: 8, outline: "none" }} onKeyDown={e=>e.key==="Enter"&&handleAddPayment()} />
                 <button onClick={handleAddPayment} disabled={addingPayment || !newPaymentAmount} style={{ background: (addingPayment || !newPaymentAmount) ? "#cbd5e1" : "#047857", color: (addingPayment || !newPaymentAmount) ? "#64748b" : "#fff", border: "none", borderRadius: 8, padding: "0 16px", fontWeight: 600, fontSize: 13, cursor: (addingPayment || !newPaymentAmount) ? "not-allowed" : "pointer" }}>Thu tiền</button>
+              </div>
+            </div>
+          </div>
+
+          {/* EXPENSES */}
+          <div style={{ background: "#fff", borderRadius: 16, border: "1px solid #e2e8f0", boxShadow: "0 4px 6px -1px rgba(0,0,0,.05)" }}>
+            <div style={{ padding: "20px", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <Wallet size={18} color="#dc2626" />
+                <h2 style={{ fontSize: 16, fontWeight: 700, color: "#0f172a", margin: 0 }}>Chi phí thực hiện</h2>
+              </div>
+              <div style={{ display: "flex", gap: 12 }}>
+                <div style={{ textAlign: "right" }}><div style={{ fontSize: 11, color: "#475569", fontWeight: 600 }}>TỔNG CHI</div><div style={{ fontSize: 14, fontWeight: 700, color: "#dc2626" }}>{formatVND(expenses.reduce((acc, p) => acc + p.amount, 0))}</div></div>
+              </div>
+            </div>
+            
+            <div style={{ padding: "20px" }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
+                {expenses.length === 0 ? <div style={{ fontSize: 13, color: "#475569", textAlign: "center" }}>Chưa có khoản chi nào</div> : expenses.map((p, i) => (
+                  <div key={p.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", background: "#fef2f2", border: "1px solid #fecdd3", borderRadius: 8 }}>
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: "#991b1b" }}>Đợt {i+1}: {formatVND(p.amount)}</div>
+                      {p.note && <div style={{ fontSize: 12, color: "#991b1b", marginTop: 2 }}>{p.note}</div>}
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                      <span style={{ fontSize: 11, color: "#991b1b" }}>{formatDateTime(p.created_at).split(" - ")[1]}</span>
+                      {isAdmin && <button aria-label="Xóa đợt chi" className="hide-on-print" onClick={() => handleDeleteExpense(p.id, p.amount)} style={{ background: "none", border: "none", color: "#ef4444", cursor: "pointer", padding: 4 }}><Trash2 size={14} /></button>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              
+              <div className="hide-on-print" style={{ display: "flex", gap: 8 }}>
+                <input id="new-expense-amount" aria-label="Số tiền chi" type="number" value={newExpenseAmount} onChange={e=>setNewExpenseAmount(e.target.value)} placeholder="Số tiền (đ)..." style={{ width: 140, padding: "8px 12px", fontSize: 13, border: "1.5px solid #e2e8f0", borderRadius: 8, outline: "none" }} />
+                <input id="new-expense-note" aria-label="Ghi chú chi" type="text" value={newExpenseNote} onChange={e=>setNewExpenseNote(e.target.value)} placeholder="Ghi chú (Lệ phí...)" style={{ flex: 1, padding: "8px 12px", fontSize: 13, border: "1.5px solid #e2e8f0", borderRadius: 8, outline: "none" }} onKeyDown={e=>e.key==="Enter"&&handleAddExpense()} />
+                <button onClick={handleAddExpense} disabled={addingExpense || !newExpenseAmount} style={{ background: (addingExpense || !newExpenseAmount) ? "#cbd5e1" : "#ea580c", color: (addingExpense || !newExpenseAmount) ? "#64748b" : "#fff", border: "none", borderRadius: 8, padding: "0 16px", fontWeight: 600, fontSize: 13, cursor: (addingExpense || !newExpenseAmount) ? "not-allowed" : "pointer" }}>Ghi chi</button>
               </div>
             </div>
           </div>

@@ -12,6 +12,16 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, L
 import Header from "@/components/Header";
 import { useAuth } from "@/components/AuthProvider";
 import { logActivity } from "@/lib/logger";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 // Calendar
 import { Calendar, dateFnsLocalizer, Event } from 'react-big-calendar';
@@ -160,6 +170,7 @@ export default function GSLawDashboard() {
   const [viewMode, setViewMode] = useState<"table" | "kanban" | "calendar">("table");
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<HoSo | null>(null);
+  const [projectToDelete, setProjectToDelete] = useState<{id: string | number, name: string} | null>(null);
 
   /* form state */
   const [tenKhach, setTenKhach]               = useState("");
@@ -221,7 +232,7 @@ NOTIFY pgrst, 'reload_schema';`;
     try {
       const res = await supabase
         .from("projects")
-        .select("*, profiles:created_by(full_name, display_name)")
+        .select("*, profiles!projects_created_by_fkey(full_name, display_name)")
         .order("created_at", { ascending: false });
       
       if (res.error) {
@@ -425,16 +436,17 @@ NOTIFY pgrst, 'reload_schema';`;
   }
 
   /* delete */
-  async function handleDelete(id: string | number, name: string) {
-    console.log("handleDelete called for:", name, "ID:", id, "isAdmin:", isAdmin);
+  function handleDelete(id: string | number, name: string) {
     if (!isAdmin) {
       toast.error("Không thể xóa: Bạn không có quyền quản trị.");
       return;
     }
-    
-    const confirmed = window.confirm(`Xóa hồ sơ "${name}"?\nHành động này không thể hoàn tác.`);
-    console.log("Confirmation result:", confirmed);
-    if (!confirmed) return;
+    setProjectToDelete({ id, name });
+  }
+
+  async function confirmDelete() {
+    if (!projectToDelete || !isAdmin) return;
+    const { id, name } = projectToDelete;
     
     try {
       // 1. Delete storage files
@@ -461,6 +473,8 @@ NOTIFY pgrst, 'reload_schema';`;
     } catch (err: any) {
       toast.error("Không thể xóa: " + err.message);
       console.error(err);
+    } finally {
+      setProjectToDelete(null);
     }
   }
 
@@ -864,6 +878,22 @@ NOTIFY pgrst, 'reload_schema';`;
           </div>
         </div>
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!projectToDelete} onOpenChange={(open) => !open && setProjectToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Bạn có chắc chắn muốn xóa hồ sơ này không?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Hành động này không thể hoàn tác. Hồ sơ <span className="font-semibold text-slate-800 dark:text-slate-200">"{projectToDelete?.name}"</span> cùng toàn bộ dữ liệu liên quan sẽ bị xóa vĩnh viễn khỏi hệ thống.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Hủy</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} className="bg-rose-600 hover:bg-rose-700 text-white dark:bg-rose-600 dark:hover:bg-rose-700">Đồng ý</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

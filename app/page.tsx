@@ -230,14 +230,24 @@ NOTIFY pgrst, 'reload_schema';`;
     let projError: any = null;
 
     try {
-      const res = await supabase
+      let query = supabase
         .from("projects")
         .select("*, profiles!projects_created_by_fkey(full_name, display_name)")
         .order("created_at", { ascending: false });
+        
+      if (!isAdmin && user) {
+        query = query.eq('created_by', user.id);
+      }
+
+      const res = await query;
       
       if (res.error) {
         console.warn("Join query failed, falling back to simple query:", res.error.message);
-        const fallbackRes = await supabase.from("projects").select("*").order("created_at", { ascending: false });
+        let fallbackQuery = supabase.from("projects").select("*").order("created_at", { ascending: false });
+        if (!isAdmin && user) {
+          fallbackQuery = fallbackQuery.eq('created_by', user.id);
+        }
+        const fallbackRes = await fallbackQuery;
         projData = fallbackRes.data;
         projError = fallbackRes.error;
       } else {
@@ -245,12 +255,26 @@ NOTIFY pgrst, 'reload_schema';`;
       }
     } catch (err: any) {
       console.warn("Exception in join query, falling back:", err);
-      const fallbackRes = await supabase.from("projects").select("*").order("created_at", { ascending: false });
+      let fallbackQuery = supabase.from("projects").select("*").order("created_at", { ascending: false });
+      if (!isAdmin && user) {
+        fallbackQuery = fallbackQuery.eq('created_by', user.id);
+      }
+      const fallbackRes = await fallbackQuery;
       projData = fallbackRes.data;
       projError = fallbackRes.error;
     }
 
-    const { data: payData } = await supabase.from("payments").select("project_id, amount");
+    let payData: any[] | null = null;
+    if (!isAdmin && (!projData || projData.length === 0)) {
+      payData = [];
+    } else {
+      let payQuery = supabase.from("payments").select("project_id, amount");
+      if (!isAdmin && projData) {
+        payQuery = payQuery.in("project_id", projData.map((p: any) => p.id));
+      }
+      const resPay = await payQuery;
+      payData = resPay.data;
+    }
 
     if (projError) {
       console.error(projError);

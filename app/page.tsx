@@ -5,7 +5,7 @@ import { supabase } from "@/lib/supabase";
 import {
   Briefcase, Wallet, Clock, Search, Plus, Trash2,
   TrendingUp, AlertCircle, Eye, Download, Filter,
-  Calendar as CalendarIcon, LayoutGrid, List, X, Pencil
+  Calendar as CalendarIcon, LayoutGrid, List, X, Pencil, Loader2
 } from "lucide-react";
 import { toast } from "sonner";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, Legend } from "recharts";
@@ -142,17 +142,21 @@ function downloadCSV(data: HoSo[]) {
 }
 
 /* ─── Stat Card ─────────────────────────────────────── */
-function StatCard({ label, value, icon: Icon, accentClass, bgClass }: {
-  label: string; value: string | number; icon: React.ElementType; accentClass: string; bgClass: string;
+function StatCard({ label, value, icon: Icon, accentClass, bgClass, loading = false }: {
+  label: string; value: string | number; icon: React.ElementType; accentClass: string; bgClass: string; loading?: boolean;
 }) {
   return (
-    <div className={`bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 border-l-4 p-5 flex items-center gap-4 shadow-sm ${accentClass}`}>
+    <div className={`bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 border-l-4 p-5 flex items-center gap-4 shadow-sm hover:shadow-md transition-shadow ${accentClass}`}>
       <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${bgClass}`}>
         <Icon size={22} className="opacity-80" strokeWidth={2} />
       </div>
       <div>
         <div className="text-sm text-slate-500 dark:text-slate-400 font-medium mb-1">{label}</div>
-        <div className="text-2xl font-bold text-slate-900 dark:text-slate-100 leading-none">{value}</div>
+        {loading ? (
+          <div className="h-7 w-16 bg-slate-200 dark:bg-slate-700 rounded animate-pulse mt-1"></div>
+        ) : (
+          <div className="text-2xl font-bold text-slate-900 dark:text-slate-100 leading-none">{value}</div>
+        )}
       </div>
     </div>
   );
@@ -230,35 +234,37 @@ NOTIFY pgrst, 'reload_schema';`;
     let projError: any = null;
 
     try {
-      let query = supabase
+      let projQuery = supabase
         .from("projects")
         .select("*, profiles!projects_created_by_fkey(full_name, display_name)")
         .order("created_at", { ascending: false });
         
       if (!isAdmin && user) {
-        query = query.eq('created_by', user.id);
+        projQuery = projQuery.eq('created_by', user.id);
       }
-
-      const res = await query;
       
-      if (res.error) {
-        console.warn("Join query failed, falling back to simple query:", res.error.message);
+      let profQuery = isAdmin ? supabase.from("profiles").select("id, display_name, role") : Promise.resolve({ data: null, error: null });
+
+      const [resProj, resProf] = await Promise.all([projQuery, profQuery]);
+
+      if (resProf.data) {
+        setEmployees(resProf.data);
+      }
+      
+      if (resProj.error) {
+        console.warn("Join query failed, falling back to simple query:", resProj.error.message);
         let fallbackQuery = supabase.from("projects").select("*").order("created_at", { ascending: false });
-        if (!isAdmin && user) {
-          fallbackQuery = fallbackQuery.eq('created_by', user.id);
-        }
+        if (!isAdmin && user) fallbackQuery = fallbackQuery.eq('created_by', user.id);
         const fallbackRes = await fallbackQuery;
         projData = fallbackRes.data;
         projError = fallbackRes.error;
       } else {
-        projData = res.data;
+        projData = resProj.data;
       }
     } catch (err: any) {
       console.warn("Exception in join query, falling back:", err);
       let fallbackQuery = supabase.from("projects").select("*").order("created_at", { ascending: false });
-      if (!isAdmin && user) {
-        fallbackQuery = fallbackQuery.eq('created_by', user.id);
-      }
+      if (!isAdmin && user) fallbackQuery = fallbackQuery.eq('created_by', user.id);
       const fallbackRes = await fallbackQuery;
       projData = fallbackRes.data;
       projError = fallbackRes.error;
@@ -269,9 +275,7 @@ NOTIFY pgrst, 'reload_schema';`;
       payData = [];
     } else {
       let payQuery = supabase.from("payments").select("project_id, amount");
-      if (!isAdmin && projData) {
-        payQuery = payQuery.in("project_id", projData.map((p: any) => p.id));
-      }
+      if (!isAdmin && projData) payQuery = payQuery.in("project_id", projData.map((p: any) => p.id));
       const resPay = await payQuery;
       payData = resPay.data;
     }
@@ -303,13 +307,7 @@ NOTIFY pgrst, 'reload_schema';`;
       setError(null);
     }
 
-    // Fetch profiles if Admin to populate employee filter dropdown
-    if (isAdmin) {
-      const { data: profData } = await supabase.from("profiles").select("id, display_name, role");
-      if (profData) {
-        setEmployees(profData);
-      }
-    }
+    // Profiles already fetched via Promise.all in parallel
 
     setLoading(false);
   }
@@ -327,9 +325,11 @@ NOTIFY pgrst, 'reload_schema';`;
     }
 
     setAdding(true);
-    
-    // Try inserting with created_by column first
-    let { data, error } = await supabase.from("projects").insert([{
+
+    // Optimistic UI
+    const tempId = "temp-" + Date.now();
+    const optimisticRecord = {
+      id: tempId,
       customer_name: tenKhach.trim(),
       customer_phone: soDienThoai.trim() || null,
       service_type: dichVu.trim() || null,
@@ -337,7 +337,28 @@ NOTIFY pgrst, 'reload_schema';`;
       total_amount: soTien ? Number(soTien) : null,
       due_date: hanChot || null,
       priority: doUuTien,
-      created_by: user?.id
+      status: "Mới",
+      created_by: creatorId,
+      created_at: new Date().toISOString(),
+      paid_amount: 0,
+      profiles: { display_name: profile?.display_name || "Nhân viên", full_name: profile?.display_name || "" }
+    };
+
+    const previousState = [...hoso];
+    setHoso(prev => [optimisticRecord as any, ...prev]);
+    setIsAddModalOpen(false);
+    resetForm();
+    
+    // Try inserting with created_by column first
+    let { data, error } = await supabase.from("projects").insert([{
+      customer_name: optimisticRecord.customer_name,
+      customer_phone: optimisticRecord.customer_phone,
+      service_type: optimisticRecord.service_type,
+      partner_name: optimisticRecord.partner_name,
+      total_amount: optimisticRecord.total_amount,
+      due_date: optimisticRecord.due_date,
+      priority: optimisticRecord.priority,
+      created_by: optimisticRecord.created_by
     }]).select().single();
 
     // Catch missing column error PGRST204 and degrade gracefully
@@ -346,13 +367,13 @@ NOTIFY pgrst, 'reload_schema';`;
       setIsSchemaOutdated(true);
       
       const retryResult = await supabase.from("projects").insert([{
-        customer_name: tenKhach.trim(),
-        customer_phone: soDienThoai.trim() || null,
-        service_type: dichVu.trim() || null,
-        partner_name: nguoiGioiThieu.trim() || null,
-        total_amount: soTien ? Number(soTien) : null,
-        due_date: hanChot || null,
-        priority: doUuTien
+        customer_name: optimisticRecord.customer_name,
+        customer_phone: optimisticRecord.customer_phone,
+        service_type: optimisticRecord.service_type,
+        partner_name: optimisticRecord.partner_name,
+        total_amount: optimisticRecord.total_amount,
+        due_date: optimisticRecord.due_date,
+        priority: optimisticRecord.priority
       }]).select().single();
       
       data = retryResult.data;
@@ -364,12 +385,11 @@ NOTIFY pgrst, 'reload_schema';`;
     }
 
     if (error) {
+      setHoso(previousState); // Rollback
       toast.error("Lỗi khi thêm hồ sơ", { description: error.message });
     } else { 
       toast.success("Thêm hồ sơ thành công!");
-      if (user && profile) await logActivity(user.id, profile.display_name || "Nhân viên", "đã thêm hồ sơ mới", tenKhach.trim());
-      setTenKhach(""); setSoDienThoai(""); setDichVu(""); setNguoiGioiThieu(""); setSoTien(""); setHanChot(""); setDoUuTien("Trung bình");
-      setIsAddModalOpen(false);
+      if (user && profile) await logActivity(user.id, profile.display_name || "Nhân viên", "đã thêm hồ sơ mới", optimisticRecord.customer_name);
       
       // Sync real-time to Sheets
       if (data) {
@@ -379,7 +399,8 @@ NOTIFY pgrst, 'reload_schema';`;
         });
       }
       
-      await fetchData(); 
+      // Background refresh
+      fetchData(); 
     }
     setAdding(false);
   }
@@ -418,6 +439,20 @@ NOTIFY pgrst, 'reload_schema';`;
     }
 
     setAdding(true);
+
+    // Optimistic UI
+    const previousState = [...hoso];
+    setHoso(prev => prev.map(h => h.id === editingProject.id ? {
+      ...h,
+      customer_name: tenKhach.trim(),
+      customer_phone: soDienThoai.trim() || null,
+      service_type: dichVu.trim() || null,
+      partner_name: nguoiGioiThieu.trim() || null,
+      total_amount: soTien ? Number(soTien) : null,
+      due_date: hanChot || null,
+      priority: doUuTien
+    } : h));
+    setIsAddModalOpen(false);
     
     try {
       const { data, error } = await supabase.from("projects").update({
@@ -431,7 +466,10 @@ NOTIFY pgrst, 'reload_schema';`;
         created_by: user?.id
       }).eq("id", editingProject.id).select().single();
 
-      if (error) throw error;
+      if (error) {
+        setHoso(previousState); // Rollback
+        throw error;
+      }
 
       toast.success("Cập nhật hồ sơ thành công!");
       if (user && profile) {
@@ -439,7 +477,6 @@ NOTIFY pgrst, 'reload_schema';`;
       }
       
       resetForm();
-      setIsAddModalOpen(false);
       
       // Sync real-time to Sheets
       if (data) {
@@ -450,8 +487,10 @@ NOTIFY pgrst, 'reload_schema';`;
         });
       }
       
-      await fetchData();
+      // Background refresh
+      fetchData();
     } catch (err: any) {
+      setHoso(previousState); // Rollback
       toast.error("Lỗi khi chỉnh sửa hồ sơ", { description: err.message });
       console.error(err);
     } finally {
@@ -472,6 +511,11 @@ NOTIFY pgrst, 'reload_schema';`;
     if (!projectToDelete || !isAdmin) return;
     const { id, name } = projectToDelete;
     
+    // Optimistic Update
+    const previousState = [...hoso];
+    setHoso(prev => prev.filter(h => h.id !== id));
+    setProjectToDelete(null);
+    
     try {
       // 1. Delete storage files
       const { data: fileList } = await supabase.storage.from("project-documents").list(String(id));
@@ -488,30 +532,32 @@ NOTIFY pgrst, 'reload_schema';`;
       // 3. Delete the project itself
       const { error } = await supabase.from("projects").delete().eq("id", id);
       if (error) {
+        setHoso(previousState); // Rollback
         toast.error("Không thể xóa: " + error.message);
       } else {
         toast.success("Đã xóa hồ sơ " + name); 
         if (user && profile) await logActivity(user.id, profile.display_name || "Admin", "đã xóa hồ sơ", name);
-        await fetchData(); 
       }
     } catch (err: any) {
+      setHoso(previousState); // Rollback
       toast.error("Không thể xóa: " + err.message);
       console.error(err);
-    } finally {
-      setProjectToDelete(null);
     }
   }
 
   /* status update */
   async function handleStatus(id: string | number, val: string) {
+    // Optimistic Update
+    const previousState = [...hoso];
+    setHoso(prev => prev.map(h => h.id === id ? { ...h, status: val } : h));
+
     const { data, error } = await supabase.from("projects").update({ status: val }).eq("id", id).select().single();
     if (error) {
       toast.error("Lỗi cập nhật trạng thái", { description: error.message });
+      setHoso(previousState); // Rollback
     } else {
       toast.success("Đã cập nhật trạng thái thành: " + val);
       if (user && profile) await logActivity(user.id, profile.display_name || "Nhân viên", "đã cập nhật trạng thái thành " + val, "Hồ sơ ID: " + id);
-      
-      setHoso(prev => prev.map(h => h.id === id ? { ...h, status: val } : h));
 
       // Sync updated record to Sheets
       if (data) {
@@ -611,10 +657,10 @@ NOTIFY pgrst, 'reload_schema';`;
 
         {/* ── STAT CARDS ── */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard label="Tổng hồ sơ hiển thị" value={filtered.length} icon={Briefcase} accentClass="border-l-blue-600 dark:border-l-blue-500" bgClass="bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-500" />
-          <StatCard label="Đang xử lý" value={dangXuLy} icon={Clock} accentClass="border-l-amber-500 dark:border-l-amber-500" bgClass="bg-amber-50 dark:bg-amber-500/10 text-amber-500" />
-          {isAdmin && <StatCard label="Doanh thu dự kiến" value={formatVND(totalDoanhThu)} icon={Wallet} accentClass="border-l-emerald-600 dark:border-l-emerald-500" bgClass="bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-500" />}
-          <StatCard label="Hoàn thành" value={filtered.filter(h=>h.status==="Hoàn thành").length} icon={TrendingUp} accentClass="border-l-purple-600 dark:border-l-purple-500" bgClass="bg-purple-50 dark:bg-purple-500/10 text-purple-600 dark:text-purple-500" />
+          <StatCard loading={loading} label="Tổng hồ sơ hiển thị" value={filtered.length} icon={Briefcase} accentClass="border-l-blue-600 dark:border-l-blue-500" bgClass="bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-500" />
+          <StatCard loading={loading} label="Đang xử lý" value={dangXuLy} icon={Clock} accentClass="border-l-amber-500 dark:border-l-amber-500" bgClass="bg-amber-50 dark:bg-amber-500/10 text-amber-500" />
+          {isAdmin && <StatCard loading={loading} label="Doanh thu dự kiến" value={formatVND(totalDoanhThu)} icon={Wallet} accentClass="border-l-emerald-600 dark:border-l-emerald-500" bgClass="bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-500" />}
+          <StatCard loading={loading} label="Hoàn thành" value={filtered.filter(h=>h.status==="Hoàn thành").length} icon={TrendingUp} accentClass="border-l-purple-600 dark:border-l-purple-500" bgClass="bg-purple-50 dark:bg-purple-500/10 text-purple-600 dark:text-purple-500" />
         </div>
 
         {/* ── CONTENT ── */}
@@ -694,7 +740,14 @@ NOTIFY pgrst, 'reload_schema';`;
                   </thead>
                   <tbody>
                     {loading ? (
-                      <tr><td colSpan={isAdmin ? 9 : 8} className="text-center py-12 text-slate-600 dark:text-slate-400 font-semibold">Đang tải dữ liệu...</td></tr>
+                      <tr>
+                        <td colSpan={isAdmin ? 9 : 8} className="text-center py-16">
+                          <div className="flex flex-col items-center justify-center gap-3">
+                            <Loader2 className="animate-spin text-blue-600 dark:text-blue-500" size={32} />
+                            <span className="text-slate-500 dark:text-slate-400 font-medium">Đang tải dữ liệu...</span>
+                          </div>
+                        </td>
+                      </tr>
                     ) : filtered.length === 0 ? (
                       <tr><td colSpan={isAdmin ? 9 : 8} className="text-center py-12 text-slate-600 dark:text-slate-400 font-semibold">Không tìm thấy hồ sơ phù hợp</td></tr>
                     ) : (

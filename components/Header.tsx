@@ -74,13 +74,13 @@ export default function Header({
         {showActions && (
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           {isAdmin && (
-            <button onClick={() => router.push("/logs")} title="Nhật ký hệ thống" className="flex items-center justify-center gap-1.5 px-3 py-2 bg-white/10 text-white border-none rounded-lg cursor-pointer hover:bg-white/20 transition-colors">
+            <button aria-label="Nhật ký hệ thống" onClick={() => router.push("/logs")} title="Nhật ký hệ thống" className="flex items-center justify-center gap-1.5 px-3 py-2 bg-white/10 text-white border-none rounded-lg cursor-pointer hover:bg-white/20 transition-colors">
               <Activity size={16} />
             </button>
           )}
 
           <div style={{ position: "relative" }}>
-            <button onClick={() => setShowNoti(!showNoti)} title="Thông báo" className="flex items-center justify-center gap-1.5 px-3 py-2 bg-white/10 text-white border-none rounded-lg cursor-pointer hover:bg-white/20 transition-colors">
+            <button aria-label="Thông báo" onClick={() => setShowNoti(!showNoti)} title="Thông báo" className="flex items-center justify-center gap-1.5 px-3 py-2 bg-white/10 text-white border-none rounded-lg cursor-pointer hover:bg-white/20 transition-colors">
               <Bell size={16} />
               {unreadCount > 0 && <div style={{ position: "absolute", top: -4, right: -4, background: "#ef4444", color: "#fff", fontSize: 10, width: 16, height: 16, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }}>{unreadCount}</div>}
             </button>
@@ -88,7 +88,7 @@ export default function Header({
               <div style={{ position: "absolute", top: 40, right: 0, background: "#fff", borderRadius: 12, width: 300, boxShadow: "0 10px 25px rgba(0,0,0,0.1)", border: "1px solid #e2e8f0", overflow: "hidden" }}>
                 <div style={{ padding: "12px 16px", borderBottom: "1px solid #f1f5f9", fontWeight: 700, fontSize: 14, color: "#0f172a" }}>Thông báo</div>
                 <div style={{ maxHeight: 300, overflowY: "auto" }}>
-                  {notifications.length === 0 ? <div style={{ padding: 20, textAlign: "center", color: "#94a3b8", fontSize: 13 }}>Không có thông báo mới</div> : notifications.map(n => (
+                  {notifications.length === 0 ? <div style={{ padding: 20, textAlign: "center", color: "#475569", fontSize: 13 }}>Không có thông báo mới</div> : notifications.map(n => (
                     <div key={n.id} onClick={() => markAsRead(n.id)} style={{ padding: "12px 16px", borderBottom: "1px solid #f1f5f9", background: n.is_read ? "#fff" : "#eff6ff", cursor: "pointer" }}>
                       <div style={{ fontSize: 13, color: "#334155" }}>{n.message}</div>
                     </div>
@@ -98,16 +98,17 @@ export default function Header({
             )}
           </div>
           
-          <button onClick={() => router.push("/settings")} title="Cài đặt" className="flex items-center justify-center gap-1.5 px-3 py-2 bg-white/10 text-white border-none rounded-lg cursor-pointer hover:bg-white/20 transition-colors">
+          <button aria-label="Cài đặt hệ thống" onClick={() => router.push("/settings")} title="Cài đặt" className="flex items-center justify-center gap-1.5 px-3 py-2 bg-white/10 text-white border-none rounded-lg cursor-pointer hover:bg-white/20 transition-colors">
             <Settings size={16} />
           </button>
           
-          <button onClick={handleLogout} title="Đăng xuất" className="flex items-center justify-center gap-1.5 px-3 py-2 bg-white/10 text-white border-none rounded-lg cursor-pointer hover:bg-white/20 transition-colors">
+          <button aria-label="Đăng xuất" onClick={handleLogout} title="Đăng xuất" className="flex items-center justify-center gap-1.5 px-3 py-2 bg-white/10 text-white border-none rounded-lg cursor-pointer hover:bg-white/20 transition-colors">
             <LogOut size={16} />
           </button>
           
           {mounted && (
             <button 
+              aria-label="Chuyển đổi giao diện Sáng/Tối"
               onClick={() => setTheme(theme === "dark" ? "light" : "dark")} 
               title="Giao diện" 
               className="flex items-center justify-center gap-1.5 px-3 py-2 bg-white/10 text-white border-none rounded-lg cursor-pointer hover:bg-white/20 transition-colors"

@@ -59,40 +59,40 @@ const STATUS_OPTIONS = [
 
 function getStatusStyle(val: string | null) {
   switch (val) {
-    case "Đang chờ": return "bg-amber-50 text-amber-700 border-amber-300 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20";
-    case "Đang soạn": return "bg-blue-50 text-blue-700 border-blue-300 dark:bg-blue-500/10 dark:text-blue-400 dark:border-blue-500/20";
-    case "Đang nộp": return "bg-sky-50 text-sky-700 border-sky-300 dark:bg-sky-500/10 dark:text-sky-400 dark:border-sky-500/20";
-    case "Hoàn thành": return "bg-green-50 text-green-700 border-green-300 dark:bg-green-500/10 dark:text-green-400 dark:border-green-500/20";
-    default: return "bg-slate-50 text-slate-500 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700";
+    case "Đang chờ": return "bg-amber-50 text-amber-800 border-amber-300 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20";
+    case "Đang soạn": return "bg-blue-50 text-blue-800 border-blue-300 dark:bg-blue-500/10 dark:text-blue-400 dark:border-blue-500/20";
+    case "Đang nộp": return "bg-sky-50 text-sky-800 border-sky-300 dark:bg-sky-500/10 dark:text-sky-400 dark:border-sky-500/20";
+    case "Hoàn thành": return "bg-green-50 text-green-800 border-green-300 dark:bg-green-500/10 dark:text-green-400 dark:border-green-500/20";
+    default: return "bg-slate-50 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700";
   }
 }
 
 /* ─── Service Badge Config ─────────────────────────── */
 function getServiceBadgeStyle(val: string | null) {
-  if (!val) return "bg-slate-100 text-slate-600 border-slate-300 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700";
+  if (!val) return "bg-slate-100 text-slate-800 border-slate-300 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700";
   const clean = val.trim().toLowerCase();
   if (clean.includes("thành lập") || clean.includes("doanh nghiệp") || clean.includes("giấy phép")) {
-    return "bg-blue-50 text-blue-700 border-blue-300 dark:bg-blue-500/10 dark:text-blue-400 dark:border-blue-500/20";
+    return "bg-blue-50 text-blue-800 border-blue-300 dark:bg-blue-500/10 dark:text-blue-400 dark:border-blue-500/20";
   }
   if (clean.includes("thuế") || clean.includes("kế toán") || clean.includes("báo cáo")) {
-    return "bg-green-50 text-green-700 border-green-300 dark:bg-green-500/10 dark:text-green-400 dark:border-green-500/20";
+    return "bg-green-50 text-green-800 border-green-300 dark:bg-green-500/10 dark:text-green-400 dark:border-green-500/20";
   }
   if (clean.includes("tranh chấp") || clean.includes("tố tụng") || clean.includes("tòa án")) {
-    return "bg-rose-50 text-rose-700 border-rose-300 dark:bg-rose-500/10 dark:text-rose-400 dark:border-rose-500/20";
+    return "bg-rose-50 text-rose-800 border-rose-300 dark:bg-rose-500/10 dark:text-rose-400 dark:border-rose-500/20";
   }
   if (clean.includes("sở hữu") || clean.includes("thương hiệu") || clean.includes("bản quyền")) {
-    return "bg-purple-50 text-purple-700 border-purple-300 dark:bg-purple-500/10 dark:text-purple-400 dark:border-purple-500/20";
+    return "bg-purple-50 text-purple-800 border-purple-300 dark:bg-purple-500/10 dark:text-purple-400 dark:border-purple-500/20";
   }
-  return "bg-slate-50 text-slate-600 border-slate-300 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700";
+  return "bg-slate-50 text-slate-800 border-slate-300 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700";
 }
 
 /* ─── Priority Badge Config ────────────────────────── */
 function getPriorityStyle(val: string | null) {
   switch (val) {
-    case "Gấp": return "bg-red-50 text-red-600 border-red-300 dark:bg-red-500/10 dark:text-red-400 dark:border-red-500/20";
-    case "Trung bình": return "bg-amber-50 text-amber-600 border-amber-300 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20";
+    case "Gấp": return "bg-red-50 text-red-800 border-red-300 dark:bg-red-500/10 dark:text-red-400 dark:border-red-500/20";
+    case "Trung bình": return "bg-amber-50 text-amber-800 border-amber-300 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20";
     case "Thường":
-    default: return "bg-emerald-50 text-emerald-600 border-emerald-300 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20";
+    default: return "bg-emerald-50 text-emerald-800 border-emerald-300 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20";
   }
 }
 
@@ -426,14 +426,41 @@ NOTIFY pgrst, 'reload_schema';`;
 
   /* delete */
   async function handleDelete(id: string | number, name: string) {
-    if (!isAdmin) return;
-    if (!confirm(`Xóa hồ sơ "${name}"?\nHành động này không thể hoàn tác.`)) return;
-    const { error } = await supabase.from("projects").delete().eq("id", id);
-    if (error) toast.error("Lỗi khi xóa", { description: error.message });
-    else { 
-      toast.success("Đã xóa hồ sơ " + name); 
-      if (user && profile) await logActivity(user.id, profile.display_name || "Admin", "đã xóa hồ sơ", name);
-      await fetchData(); 
+    console.log("handleDelete called for:", name, "ID:", id, "isAdmin:", isAdmin);
+    if (!isAdmin) {
+      toast.error("Không thể xóa: Bạn không có quyền quản trị.");
+      return;
+    }
+    
+    const confirmed = window.confirm(`Xóa hồ sơ "${name}"?\nHành động này không thể hoàn tác.`);
+    console.log("Confirmation result:", confirmed);
+    if (!confirmed) return;
+    
+    try {
+      // 1. Delete storage files
+      const { data: fileList } = await supabase.storage.from("project-documents").list(String(id));
+      if (fileList && fileList.length > 0) {
+        const paths = fileList.map(f => `${id}/${f.name}`);
+        await supabase.storage.from("project-documents").remove(paths);
+      }
+      
+      // 2. Delete related records in database to avoid foreign key constraints
+      await supabase.from("payments").delete().eq("project_id", id);
+      await supabase.from("tasks").delete().eq("project_id", id);
+      await supabase.from("notes").delete().eq("project_id", id);
+      
+      // 3. Delete the project itself
+      const { error } = await supabase.from("projects").delete().eq("id", id);
+      if (error) {
+        toast.error("Không thể xóa: " + error.message);
+      } else {
+        toast.success("Đã xóa hồ sơ " + name); 
+        if (user && profile) await logActivity(user.id, profile.display_name || "Admin", "đã xóa hồ sơ", name);
+        await fetchData(); 
+      }
+    } catch (err: any) {
+      toast.error("Không thể xóa: " + err.message);
+      console.error(err);
     }
   }
 
@@ -560,8 +587,8 @@ NOTIFY pgrst, 'reload_schema';`;
             
             <div className="flex gap-3 items-center flex-1 min-w-[280px]">
               <div className="flex items-center gap-2 flex-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 shadow-sm focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500 transition-all">
-                <Search size={16} className="text-slate-400" />
-                <input placeholder="Tìm tên khách hàng... (Nhấn Ctrl+K)" value={search} onChange={e=>setSearch(e.target.value)} className="border-none outline-none text-sm w-full bg-transparent text-slate-900 dark:text-slate-100 placeholder-slate-400" />
+                <Search size={16} className="text-slate-500" />
+                <input id="search-input" aria-label="Tìm kiếm khách hàng" placeholder="Tìm tên khách hàng... (Nhấn Ctrl+K)" value={search} onChange={e=>setSearch(e.target.value)} className="border-none outline-none text-sm w-full bg-transparent text-slate-900 dark:text-slate-100 placeholder-slate-500" />
               </div>
 
               <button onClick={() => setIsAddModalOpen(true)} className="bg-gradient-to-br from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white border-none rounded-lg px-4 py-2 text-sm font-semibold flex items-center gap-2 cursor-pointer shadow-md shadow-blue-500/20 whitespace-nowrap transition-all">
@@ -572,16 +599,16 @@ NOTIFY pgrst, 'reload_schema';`;
             <div className="flex items-center gap-3 flex-wrap">
               <div className="flex items-center gap-2">
                 <Filter size={16} className="text-slate-500" />
-                <select value={filterStatus} onChange={e=>setFilterStatus(e.target.value)} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5 text-sm outline-none text-slate-900 dark:text-slate-100">
+                <select aria-label="Lọc theo trạng thái" value={filterStatus} onChange={e=>setFilterStatus(e.target.value)} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5 text-sm outline-none text-slate-900 dark:text-slate-100">
                   <option value="">Trạng thái</option>
                   {STATUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </select>
-                <select value={filterPartner} onChange={e=>setFilterPartner(e.target.value)} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5 text-sm outline-none text-slate-900 dark:text-slate-100 hidden md:block">
+                <select aria-label="Lọc theo nguồn giới thiệu" value={filterPartner} onChange={e=>setFilterPartner(e.target.value)} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5 text-sm outline-none text-slate-900 dark:text-slate-100 hidden md:block">
                   <option value="">Nguồn GT</option>
                   {uniquePartners.map(p => <option key={p} value={p}>{p}</option>)}
                 </select>
                 {isAdmin && (
-                  <select value={filterEmployee} onChange={e=>setFilterEmployee(e.target.value)} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5 text-sm outline-none text-slate-900 dark:text-slate-100">
+                  <select aria-label="Lọc theo nhân viên phụ trách" value={filterEmployee} onChange={e=>setFilterEmployee(e.target.value)} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5 text-sm outline-none text-slate-900 dark:text-slate-100">
                     <option value="">Xem theo nhân viên</option>
                     {employees.map(emp => (
                       <option key={emp.id} value={emp.id}>{emp.display_name || emp.role}</option>
@@ -592,17 +619,17 @@ NOTIFY pgrst, 'reload_schema';`;
 
               <div className="flex items-center gap-3 md:border-l border-slate-300 dark:border-slate-600 md:pl-4">
                 <div className="flex bg-slate-200 dark:bg-slate-700 rounded-lg p-1">
-                  <button onClick={() => setViewMode("table")} className={`rounded-md px-3 py-1.5 text-sm font-medium flex items-center gap-1.5 transition-all ${viewMode === "table" ? "bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 shadow-sm" : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"}`}>
+                  <button aria-label="Xem dạng bảng" onClick={() => setViewMode("table")} className={`rounded-md px-3 py-1.5 text-sm font-medium flex items-center gap-1.5 transition-all ${viewMode === "table" ? "bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 shadow-sm" : "text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"}`}>
                     <List size={16} /> <span className="hidden sm:inline">Bảng</span>
                   </button>
-                  <button onClick={() => setViewMode("kanban")} className={`rounded-md px-3 py-1.5 text-sm font-medium flex items-center gap-1.5 transition-all ${viewMode === "kanban" ? "bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 shadow-sm" : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"}`}>
+                  <button aria-label="Xem dạng Kanban" onClick={() => setViewMode("kanban")} className={`rounded-md px-3 py-1.5 text-sm font-medium flex items-center gap-1.5 transition-all ${viewMode === "kanban" ? "bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 shadow-sm" : "text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"}`}>
                     <LayoutGrid size={16} /> <span className="hidden sm:inline">Kanban</span>
                   </button>
-                  <button onClick={() => setViewMode("calendar")} className={`rounded-md px-3 py-1.5 text-sm font-medium flex items-center gap-1.5 transition-all ${viewMode === "calendar" ? "bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 shadow-sm" : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"}`}>
+                  <button aria-label="Xem dạng lịch biểu" onClick={() => setViewMode("calendar")} className={`rounded-md px-3 py-1.5 text-sm font-medium flex items-center gap-1.5 transition-all ${viewMode === "calendar" ? "bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 shadow-sm" : "text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"}`}>
                     <CalendarIcon size={16} /> <span className="hidden sm:inline">Lịch biểu</span>
                   </button>
                 </div>
-                <button onClick={() => downloadCSV(filtered)} className="bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 text-emerald-700 dark:text-emerald-400 px-3 py-1.5 rounded-lg text-sm font-semibold flex items-center gap-1.5 hover:bg-emerald-100 dark:hover:bg-emerald-500/20 transition-colors">
+                <button aria-label="Xuất dữ liệu ra file CSV" onClick={() => downloadCSV(filtered)} className="bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 text-emerald-800 dark:text-emerald-400 px-3 py-1.5 rounded-lg text-sm font-semibold flex items-center gap-1.5 hover:bg-emerald-100 dark:hover:bg-emerald-500/20 transition-colors">
                   <Download size={16} /> <span className="hidden sm:inline">CSV</span>
                 </button>
               </div>
@@ -629,9 +656,9 @@ NOTIFY pgrst, 'reload_schema';`;
                   </thead>
                   <tbody>
                     {loading ? (
-                      <tr><td colSpan={isAdmin ? 9 : 8} className="text-center py-12 text-slate-400">Đang tải dữ liệu...</td></tr>
+                      <tr><td colSpan={isAdmin ? 9 : 8} className="text-center py-12 text-slate-600 dark:text-slate-400 font-semibold">Đang tải dữ liệu...</td></tr>
                     ) : filtered.length === 0 ? (
-                      <tr><td colSpan={isAdmin ? 9 : 8} className="text-center py-12 text-slate-400">Không tìm thấy hồ sơ phù hợp</td></tr>
+                      <tr><td colSpan={isAdmin ? 9 : 8} className="text-center py-12 text-slate-600 dark:text-slate-400 font-semibold">Không tìm thấy hồ sơ phù hợp</td></tr>
                     ) : (
                       filtered.map((item) => {
                         const warn = isWarning(item.due_date, item.status);
@@ -674,8 +701,8 @@ NOTIFY pgrst, 'reload_schema';`;
                               <div className="flex items-center gap-1.5">{formatDate(item.due_date)}{warn && <AlertCircle size={14} className="text-red-500" />}</div>
                             </td>
                             
-                            <td className="px-4 py-3 align-middle" onClick={e => e.stopPropagation()}>
-                              <select value={item.status ?? ""} onChange={e => handleStatus(item.id, e.target.value)} className={`text-xs font-semibold rounded-full px-2 py-1 outline-none border cursor-pointer ${getStatusStyle(item.status)}`}>
+                            <td className="px-4 py-3 align-middle">
+                              <select aria-label="Cập nhật trạng thái" onClick={e => e.stopPropagation()} value={item.status ?? ""} onChange={e => handleStatus(item.id, e.target.value)} className={`text-xs font-semibold rounded-full px-2 py-1 outline-none border cursor-pointer ${getStatusStyle(item.status)}`}>
                                 <option value="" disabled>— Chọn —</option>
                                 {STATUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                               </select>
@@ -695,12 +722,19 @@ NOTIFY pgrst, 'reload_schema';`;
                               </div>
                             </td>
 
-                            <td className="px-4 py-3 align-middle text-center" onClick={e => e.stopPropagation()}>
+                            <td className="px-4 py-3 align-middle text-center">
                               <div className="flex gap-2 justify-center">
-                                <button onClick={() => handleZaloShare(item)} title="Gửi Zalo" className="px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white border-none rounded text-[11px] font-semibold cursor-pointer shadow-sm transition-colors">Zalo</button>
-                                <button onClick={() => router.push(`/project/${item.id}`)} title="Xem" className="p-1.5 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded-md hover:bg-blue-100 dark:hover:bg-blue-500/20 transition-colors"><Eye size={14} /></button>
-                                <button onClick={() => openEditModal(item)} title="Sửa" className="p-1.5 bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 rounded-md hover:bg-amber-100 dark:hover:bg-amber-500/20 transition-colors"><Pencil size={14} /></button>
-                                {isAdmin && <button onClick={() => handleDelete(item.id, item.customer_name)} title="Xóa" className="p-1.5 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 rounded-md hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-colors"><Trash2 size={14} /></button>}
+                                <button aria-label={`Xem hồ sơ ${item.customer_name}`} onClick={(e) => { e.stopPropagation(); router.push(`/project/${item.id}`); }} title="Xem" className="p-1.5 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded-md hover:bg-blue-100 dark:hover:bg-blue-500/20 transition-colors">
+                                  <Eye size={14} className="pointer-events-none" />
+                                </button>
+                                <button aria-label={`Sửa hồ sơ ${item.customer_name}`} onClick={(e) => { e.stopPropagation(); openEditModal(item); }} title="Sửa" className="p-1.5 bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 rounded-md hover:bg-amber-100 dark:hover:bg-amber-500/20 transition-colors">
+                                  <Pencil size={14} className="pointer-events-none" />
+                                </button>
+                                {isAdmin && (
+                                  <button aria-label={`Xóa hồ sơ ${item.customer_name}`} onClick={(e) => { e.stopPropagation(); handleDelete(item.id, item.customer_name); }} title="Xóa" className="p-1.5 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 rounded-md hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-colors">
+                                    <Trash2 size={14} className="pointer-events-none" />
+                                  </button>
+                                )}
                               </div>
                             </td>
                           </tr>
@@ -710,7 +744,7 @@ NOTIFY pgrst, 'reload_schema';`;
                   </tbody>
                 </table>
               </div>
-              <div className="px-5 py-3 border-t border-slate-100 dark:border-slate-700 text-xs text-slate-500 dark:text-slate-400 text-right bg-slate-50/50 dark:bg-slate-800/30">Hiển thị {filtered.length} hồ sơ</div>
+              <div className="px-5 py-3 border-t border-slate-100 dark:border-slate-700 text-xs text-slate-600 dark:text-slate-400 text-right bg-slate-50/50 dark:bg-slate-800/30">Hiển thị {filtered.length} hồ sơ</div>
             </>
           )}
 
@@ -799,21 +833,21 @@ NOTIFY pgrst, 'reload_schema';`;
               <span className="text-lg font-bold text-slate-900 dark:text-slate-100">
                 {editingProject ? "Chỉnh sửa hồ sơ" : "Thêm hồ sơ mới"}
               </span>
-              <button onClick={() => { setIsAddModalOpen(false); resetForm(); }} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors">
+              <button aria-label="Đóng" onClick={() => { setIsAddModalOpen(false); resetForm(); }} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors">
                 <X size={20} />
               </button>
             </div>
             
             <div className="flex flex-col gap-3">
-              <div><label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1">Tên KH *</label><input type="text" placeholder="CÔNG TY..." value={tenKhach} onChange={e=>setTenKhach(e.target.value)} className="w-full px-3 py-2 bg-transparent border border-slate-300 dark:border-slate-600 rounded-lg text-sm outline-none focus:border-blue-500 transition-colors dark:text-slate-100" /></div>
-              <div><label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1">Số điện thoại</label><input type="text" placeholder="090..." value={soDienThoai} onChange={e=>setSoDienThoai(e.target.value)} className="w-full px-3 py-2 bg-transparent border border-slate-300 dark:border-slate-600 rounded-lg text-sm outline-none focus:border-blue-500 transition-colors dark:text-slate-100" /></div>
-              <div><label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1">Dịch vụ</label><input type="text" placeholder="Loại..." value={dichVu} onChange={e=>setDichVu(e.target.value)} className="w-full px-3 py-2 bg-transparent border border-slate-300 dark:border-slate-600 rounded-lg text-sm outline-none focus:border-blue-500 transition-colors dark:text-slate-100" /></div>
-              <div><label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1">Người GT</label><input type="text" placeholder="Tên..." value={nguoiGioiThieu} onChange={e=>setNguoiGioiThieu(e.target.value)} className="w-full px-3 py-2 bg-transparent border border-slate-300 dark:border-slate-600 rounded-lg text-sm outline-none focus:border-blue-500 transition-colors dark:text-slate-100" /></div>
-              <div><label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1">Giá trị (đ)</label><input type="number" placeholder="1000000" value={soTien} onChange={e=>setSoTien(e.target.value)} className="w-full px-3 py-2 bg-transparent border border-slate-300 dark:border-slate-600 rounded-lg text-sm outline-none focus:border-blue-500 transition-colors dark:text-slate-100" /></div>
-              <div><label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1">Hạn chót</label><input type="date" value={hanChot} onChange={e=>setHanChot(e.target.value)} className="w-full px-3 py-2 bg-transparent border border-slate-300 dark:border-slate-600 rounded-lg text-sm outline-none focus:border-blue-500 transition-colors dark:text-slate-100" /></div>
+              <div><label htmlFor="hoso-ten" className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1">Tên KH *</label><input id="hoso-ten" type="text" placeholder="CÔNG TY..." value={tenKhach} onChange={e=>setTenKhach(e.target.value)} className="w-full px-3 py-2 bg-transparent border border-slate-300 dark:border-slate-600 rounded-lg text-sm outline-none focus:border-blue-500 transition-colors dark:text-slate-100" /></div>
+              <div><label htmlFor="hoso-phone" className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1">Số điện thoại</label><input id="hoso-phone" type="text" placeholder="090..." value={soDienThoai} onChange={e=>setSoDienThoai(e.target.value)} className="w-full px-3 py-2 bg-transparent border border-slate-300 dark:border-slate-600 rounded-lg text-sm outline-none focus:border-blue-500 transition-colors dark:text-slate-100" /></div>
+              <div><label htmlFor="hoso-service" className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1">Dịch vụ</label><input id="hoso-service" type="text" placeholder="Loại..." value={dichVu} onChange={e=>setDichVu(e.target.value)} className="w-full px-3 py-2 bg-transparent border border-slate-300 dark:border-slate-600 rounded-lg text-sm outline-none focus:border-blue-500 transition-colors dark:text-slate-100" /></div>
+              <div><label htmlFor="hoso-partner" className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1">Người GT</label><input id="hoso-partner" type="text" placeholder="Tên..." value={nguoiGioiThieu} onChange={e=>setNguoiGioiThieu(e.target.value)} className="w-full px-3 py-2 bg-transparent border border-slate-300 dark:border-slate-600 rounded-lg text-sm outline-none focus:border-blue-500 transition-colors dark:text-slate-100" /></div>
+              <div><label htmlFor="hoso-amount" className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1">Giá trị (đ)</label><input id="hoso-amount" type="number" placeholder="1000000" value={soTien} onChange={e=>setSoTien(e.target.value)} className="w-full px-3 py-2 bg-transparent border border-slate-300 dark:border-slate-600 rounded-lg text-sm outline-none focus:border-blue-500 transition-colors dark:text-slate-100" /></div>
+              <div><label htmlFor="hoso-duedate" className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1">Hạn chót</label><input id="hoso-duedate" type="date" value={hanChot} onChange={e=>setHanChot(e.target.value)} className="w-full px-3 py-2 bg-transparent border border-slate-300 dark:border-slate-600 rounded-lg text-sm outline-none focus:border-blue-500 transition-colors dark:text-slate-100" /></div>
               <div>
-                <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1">Ưu tiên</label>
-                <select value={doUuTien} onChange={e=>setDoUuTien(e.target.value)} className="w-full px-3 py-2 bg-transparent border border-slate-300 dark:border-slate-600 rounded-lg text-sm outline-none focus:border-blue-500 transition-colors dark:text-slate-100 [&>option]:bg-white dark:[&>option]:bg-slate-800">
+                <label htmlFor="hoso-priority" className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1">Ưu tiên</label>
+                <select id="hoso-priority" value={doUuTien} onChange={e=>setDoUuTien(e.target.value)} className="w-full px-3 py-2 bg-transparent border border-slate-300 dark:border-slate-600 rounded-lg text-sm outline-none focus:border-blue-500 transition-colors dark:text-slate-100 [&>option]:bg-white dark:[&>option]:bg-slate-800">
                   <option value="Thường">Thường (Xanh)</option>
                   <option value="Trung bình">Trung bình (Vàng)</option>
                   <option value="Gấp">Gấp (Đỏ)</option>
@@ -823,7 +857,7 @@ NOTIFY pgrst, 'reload_schema';`;
 
             <div className="flex justify-end gap-3 mt-2">
               <button onClick={() => { setIsAddModalOpen(false); resetForm(); }} className="px-4 py-2 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-semibold text-sm rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors">Hủy</button>
-              <button onClick={editingProject ? handleEdit : handleAdd} disabled={adding} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm rounded-lg disabled:opacity-50 transition-colors">
+              <button onClick={editingProject ? handleEdit : handleAdd} disabled={adding} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm rounded-lg disabled:bg-slate-200 disabled:text-slate-500 dark:disabled:bg-slate-700 dark:disabled:text-slate-400 transition-colors">
                 {adding ? "Đang lưu..." : (editingProject ? "Lưu thay đổi" : "Thêm")}
               </button>
             </div>

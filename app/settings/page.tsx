@@ -100,18 +100,18 @@ export default function SettingsPage() {
           
           <div style={{ display: "grid", gap: 16, maxWidth: 400 }}>
             <div>
-              <label style={labelStyle}>Tên hiển thị</label>
-              <input type="text" value={displayName} onChange={e=>setDisplayName(e.target.value)} style={inputStyle} />
+              <label htmlFor="display-name" style={labelStyle}>Tên hiển thị</label>
+              <input id="display-name" type="text" value={displayName} onChange={e=>setDisplayName(e.target.value)} style={inputStyle} />
             </div>
-            <button onClick={handleUpdateProfile} disabled={loading} style={btnStyle}>Cập nhật Tên</button>
+            <button onClick={handleUpdateProfile} disabled={loading} style={getBtnStyle(loading)}>Cập nhật Tên</button>
             
             <hr style={{ border: "none", borderTop: "1px solid #f1f5f9", margin: "8px 0" }} />
             
             <div>
-              <label style={labelStyle}>Mật khẩu mới</label>
-              <input type="password" placeholder="Nhập mật khẩu mới..." value={password} onChange={e=>setPassword(e.target.value)} style={inputStyle} />
+              <label htmlFor="new-password" style={labelStyle}>Mật khẩu mới</label>
+              <input id="new-password" type="password" placeholder="Nhập mật khẩu mới..." value={password} onChange={e=>setPassword(e.target.value)} style={inputStyle} />
             </div>
-            <button onClick={handleUpdatePassword} disabled={loading || !password} style={btnStyle}>Đổi mật khẩu</button>
+            <button onClick={handleUpdatePassword} disabled={loading || !password} style={getBtnStyle(loading || !password)}>Đổi mật khẩu</button>
           </div>
         </div>
 
@@ -119,24 +119,24 @@ export default function SettingsPage() {
         {isAdmin && (
           <div style={{ background: "#fff", borderRadius: 16, border: "1px solid #e2e8f0", padding: 24, boxShadow: "0 4px 6px rgba(0,0,0,0.05)" }}>
             <h2 style={{ fontSize: 18, fontWeight: 700, color: "#0f172a", marginBottom: 20 }}>Thông tin Văn phòng / Công ty</h2>
-            <p style={{ fontSize: 13, color: "#64748b", marginBottom: 20 }}>Thông tin này sẽ được in trên đầu các bản báo cáo PDF.</p>
+            <p style={{ fontSize: 13, color: "#475569", marginBottom: 20 }}>Thông tin này sẽ được in trên đầu các bản báo cáo PDF.</p>
             
-            {loadingSettings ? <div style={{ fontSize: 13, color: "#94a3b8" }}>Đang tải...</div> : (
+            {loadingSettings ? <div style={{ fontSize: 13, color: "#475569" }}>Đang tải...</div> : (
               <div style={{ display: "grid", gap: 16, maxWidth: 500 }}>
                 <div>
-                  <label style={labelStyle}>Tên Công ty / Văn phòng</label>
-                  <input type="text" placeholder="Công ty Luật GSLaw..." value={companyName} onChange={e=>setCompanyName(e.target.value)} style={inputStyle} />
+                  <label htmlFor="company-name" style={labelStyle}>Tên Công ty / Văn phòng</label>
+                  <input id="company-name" type="text" placeholder="Công ty Luật GSLaw..." value={companyName} onChange={e=>setCompanyName(e.target.value)} style={inputStyle} />
                 </div>
                 <div>
-                  <label style={labelStyle}>Địa chỉ</label>
-                  <input type="text" placeholder="Tầng 5, Tòa nhà..." value={companyAddress} onChange={e=>setCompanyAddress(e.target.value)} style={inputStyle} />
+                  <label htmlFor="company-address" style={labelStyle}>Địa chỉ</label>
+                  <input id="company-address" type="text" placeholder="Tầng 5, Tòa nhà..." value={companyAddress} onChange={e=>setCompanyAddress(e.target.value)} style={inputStyle} />
                 </div>
                 <div>
-                  <label style={labelStyle}>Mã số thuế</label>
-                  <input type="text" placeholder="0123456789" value={taxId} onChange={e=>setTaxId(e.target.value)} style={inputStyle} />
+                  <label htmlFor="tax-id" style={labelStyle}>Mã số thuế</label>
+                  <input id="tax-id" type="text" placeholder="0123456789" value={taxId} onChange={e=>setTaxId(e.target.value)} style={inputStyle} />
                 </div>
                 
-                <button onClick={handleUpdateSettings} disabled={loading} style={btnStyle}>Lưu thông tin Công ty</button>
+                <button onClick={handleUpdateSettings} disabled={loading} style={getBtnStyle(loading)}>Lưu thông tin Công ty</button>
               </div>
             )}
           </div>
@@ -150,3 +150,9 @@ export default function SettingsPage() {
 const labelStyle = { display: "block", fontSize: 12, fontWeight: 600, color: "#475569", marginBottom: 6 };
 const inputStyle = { width: "100%", padding: "10px 14px", fontSize: 14, border: "1.5px solid #e2e8f0", borderRadius: 8, outline: "none", color: "#0f172a", transition: "border-color .15s" };
 const btnStyle = { background: "#1d4ed8", color: "#fff", border: "none", borderRadius: 8, padding: "10px 16px", fontWeight: 600, fontSize: 13, cursor: "pointer", alignSelf: "flex-start" };
+const getBtnStyle = (disabled: boolean) => ({
+  ...btnStyle,
+  background: disabled ? "#cbd5e1" : "#1d4ed8",
+  color: disabled ? "#64748b" : "#fff",
+  cursor: disabled ? "not-allowed" : "pointer"
+});

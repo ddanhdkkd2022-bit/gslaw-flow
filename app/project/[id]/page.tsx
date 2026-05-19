@@ -323,7 +323,7 @@ export default function ProjectDetail({ params }: { params: Promise<{ id: string
   const totalAmount = project?.total_amount || 0;
   const debt = totalAmount - totalPaid;
 
-  const extraLeft = <button onClick={() => router.push("/")} style={btnNavStyle}><ArrowLeft size={18} /></button>;
+  const extraLeft = <button aria-label="Quay lại trang chủ" onClick={() => router.push("/")} style={btnNavStyle}><ArrowLeft size={18} /></button>;
   const handleExportContract = (type: "hop-dong" | "uy-quyen") => {
     setExportMode(type);
     setTimeout(() => {
@@ -370,19 +370,16 @@ export default function ProjectDetail({ params }: { params: Promise<{ id: string
 
   const extraRight = (
     <>
-      <button onClick={handleGenerateLink} title="Chia sẻ khách hàng" style={{ ...btnNavStyle, background: "#3b82f6" }}>
+      <button aria-label="Sao chép link tracking chia sẻ khách hàng" onClick={handleGenerateLink} title="Chia sẻ khách hàng" style={{ ...btnNavStyle, background: "#1d4ed8" }}>
         <LinkIcon size={15} /> Tracking
       </button>
-      <button onClick={handleZaloShare} title="Gửi Zalo" style={{ ...btnNavStyle, background: "#0284c7" }}>
-        <MessageSquare size={15} /> Gửi Zalo
-      </button>
-      <button onClick={() => window.print()} title="In Báo Cáo" style={btnNavStyle}>
+      <button aria-label="In báo cáo tiến độ hồ sơ" onClick={() => window.print()} title="In Báo Cáo" style={btnNavStyle}>
         <Printer size={15} /> In Báo Cáo
       </button>
-      <button onClick={() => handleExportContract("hop-dong")} title="Tạo Hợp Đồng" style={{ ...btnNavStyle, background: "#10b981" }}>
+      <button aria-label="Tạo và xuất hợp đồng dịch vụ" onClick={() => handleExportContract("hop-dong")} title="Tạo Hợp Đồng" style={{ ...btnNavStyle, background: "#047857" }}>
         <FileDown size={15} /> Tạo HĐ
       </button>
-      <button onClick={openEditModal} title="Sửa hồ sơ" style={{ ...btnNavStyle, background: "#f59e0b" }}>
+      <button aria-label="Chỉnh sửa thông tin hồ sơ" onClick={openEditModal} title="Sửa hồ sơ" style={{ ...btnNavStyle, background: "#b45309" }}>
         <Pencil size={15} /> Sửa hồ sơ
       </button>
     </>
@@ -415,7 +412,7 @@ export default function ProjectDetail({ params }: { params: Promise<{ id: string
                   <h1 style={{ fontSize: 24, fontWeight: 800, color: "#0f172a", margin: "0 0 8px 0" }}>{project.customer_name}</h1>
                   <div style={{ display: "inline-block", background: "#eff6ff", color: "#1d4ed8", padding: "4px 12px", borderRadius: 20, fontSize: 13, fontWeight: 600 }}>Trạng thái: {project.status ?? "Chưa rõ"}</div>
                 </div>
-                <button onClick={openEditModal} title="Sửa hồ sơ" className="hide-on-print" style={{ background: "#fef3c7", border: "1px solid #fde68a", color: "#d97706", display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer", transition: "all 0.2s" }}>
+                <button onClick={openEditModal} title="Sửa hồ sơ" className="hide-on-print" style={{ background: "#fef3c7", border: "1px solid #fde68a", color: "#92400e", display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer", transition: "all 0.2s" }}>
                   <Pencil size={14} /> Sửa
                 </button>
               </div>
@@ -436,31 +433,31 @@ export default function ProjectDetail({ params }: { params: Promise<{ id: string
                 <h2 style={{ fontSize: 16, fontWeight: 700, color: "#0f172a", margin: 0 }}>Tiến độ thanh toán</h2>
               </div>
               <div style={{ display: "flex", gap: 12 }}>
-                <div style={{ textAlign: "right" }}><div style={{ fontSize: 11, color: "#64748b", fontWeight: 600 }}>ĐÃ THU</div><div style={{ fontSize: 14, fontWeight: 700, color: "#059669" }}>{formatVND(totalPaid)}</div></div>
-                <div style={{ textAlign: "right" }}><div style={{ fontSize: 11, color: "#64748b", fontWeight: 600 }}>CÔNG NỢ</div><div style={{ fontSize: 14, fontWeight: 700, color: debt > 0 ? "#dc2626" : "#64748b" }}>{formatVND(debt)}</div></div>
+                <div style={{ textAlign: "right" }}><div style={{ fontSize: 11, color: "#475569", fontWeight: 600 }}>ĐÃ THU</div><div style={{ fontSize: 14, fontWeight: 700, color: "#059669" }}>{formatVND(totalPaid)}</div></div>
+                <div style={{ textAlign: "right" }}><div style={{ fontSize: 11, color: "#475569", fontWeight: 600 }}>CÔNG NỢ</div><div style={{ fontSize: 14, fontWeight: 700, color: debt > 0 ? "#dc2626" : "#475569" }}>{formatVND(debt)}</div></div>
               </div>
             </div>
             
             <div style={{ padding: "20px" }}>
               <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
-                {payments.length === 0 ? <div style={{ fontSize: 13, color: "#94a3b8", textAlign: "center" }}>Chưa có đợt thanh toán nào</div> : payments.map((p, i) => (
+                {payments.length === 0 ? <div style={{ fontSize: 13, color: "#475569", textAlign: "center" }}>Chưa có đợt thanh toán nào</div> : payments.map((p, i) => (
                   <div key={p.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 8 }}>
                     <div>
                       <div style={{ fontSize: 13, fontWeight: 700, color: "#0f172a" }}>Đợt {i+1}: {formatVND(p.amount)}</div>
-                      {p.note && <div style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>{p.note}</div>}
+                      {p.note && <div style={{ fontSize: 12, color: "#475569", marginTop: 2 }}>{p.note}</div>}
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                      <span style={{ fontSize: 11, color: "#94a3b8" }}>{formatDateTime(p.created_at).split(" - ")[1]}</span>
-                      {isAdmin && <button className="hide-on-print" onClick={() => handleDeletePayment(p.id, p.amount)} style={{ background: "none", border: "none", color: "#ef4444", cursor: "pointer", padding: 4 }}><Trash2 size={14} /></button>}
+                      <span style={{ fontSize: 11, color: "#475569" }}>{formatDateTime(p.created_at).split(" - ")[1]}</span>
+                      {isAdmin && <button aria-label="Xóa đợt thanh toán" className="hide-on-print" onClick={() => handleDeletePayment(p.id, p.amount)} style={{ background: "none", border: "none", color: "#ef4444", cursor: "pointer", padding: 4 }}><Trash2 size={14} /></button>}
                     </div>
                   </div>
                 ))}
               </div>
               
               <div className="hide-on-print" style={{ display: "flex", gap: 8 }}>
-                <input type="number" value={newPaymentAmount} onChange={e=>setNewPaymentAmount(e.target.value)} placeholder="Số tiền (đ)..." style={{ width: 140, padding: "8px 12px", fontSize: 13, border: "1.5px solid #e2e8f0", borderRadius: 8, outline: "none" }} />
-                <input type="text" value={newPaymentNote} onChange={e=>setNewPaymentNote(e.target.value)} placeholder="Ghi chú (Tạm ứng...)" style={{ flex: 1, padding: "8px 12px", fontSize: 13, border: "1.5px solid #e2e8f0", borderRadius: 8, outline: "none" }} onKeyDown={e=>e.key==="Enter"&&handleAddPayment()} />
-                <button onClick={handleAddPayment} disabled={addingPayment || !newPaymentAmount} style={{ background: "#10b981", color: "#fff", border: "none", borderRadius: 8, padding: "0 16px", fontWeight: 600, fontSize: 13, cursor: "pointer" }}>Thu tiền</button>
+                <input id="new-payment-amount" aria-label="Số tiền thanh toán" type="number" value={newPaymentAmount} onChange={e=>setNewPaymentAmount(e.target.value)} placeholder="Số tiền (đ)..." style={{ width: 140, padding: "8px 12px", fontSize: 13, border: "1.5px solid #e2e8f0", borderRadius: 8, outline: "none" }} />
+                <input id="new-payment-note" aria-label="Ghi chú thanh toán" type="text" value={newPaymentNote} onChange={e=>setNewPaymentNote(e.target.value)} placeholder="Ghi chú (Tạm ứng...)" style={{ flex: 1, padding: "8px 12px", fontSize: 13, border: "1.5px solid #e2e8f0", borderRadius: 8, outline: "none" }} onKeyDown={e=>e.key==="Enter"&&handleAddPayment()} />
+                <button onClick={handleAddPayment} disabled={addingPayment || !newPaymentAmount} style={{ background: (addingPayment || !newPaymentAmount) ? "#cbd5e1" : "#047857", color: (addingPayment || !newPaymentAmount) ? "#64748b" : "#fff", border: "none", borderRadius: 8, padding: "0 16px", fontWeight: 600, fontSize: 13, cursor: (addingPayment || !newPaymentAmount) ? "not-allowed" : "pointer" }}>Thu tiền</button>
               </div>
             </div>
           </div>
@@ -476,10 +473,10 @@ export default function ProjectDetail({ params }: { params: Promise<{ id: string
             </div>
             
             {taskFetchError ? (
-              <div style={{ padding: "30px 20px", textAlign: "center", color: "#64748b", fontSize: 13 }}>
+              <div style={{ padding: "30px 20px", textAlign: "center", color: "#475569", fontSize: 13 }}>
                 <AlertCircle size={24} color="#dc2626" style={{ margin: "0 auto 10px" }} />
                 Chưa thể tải danh sách công việc.<br/>
-                <span style={{ fontSize: 11, color: "#94a3b8" }}>Lỗi: {taskFetchError}</span>
+                <span style={{ fontSize: 11, color: "#475569" }}>Lỗi: {taskFetchError}</span>
               </div>
             ) : (
               <>
@@ -496,19 +493,23 @@ export default function ProjectDetail({ params }: { params: Promise<{ id: string
                     {tasks.map(task => (
                       <div key={task.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", background: task.is_completed ? "#f8fafc" : "#fff", border: "1px solid #e2e8f0", borderRadius: 8 }}>
                         <label style={{ display: "flex", alignItems: "center", gap: 12, cursor: "pointer", flex: 1 }}>
-                          <div onClick={() => toggleTask(task.id, task.is_completed)} style={{ width: 20, height: 20, borderRadius: 6, border: task.is_completed ? "none" : "2px solid #cbd5e1", background: task.is_completed ? "#10b981" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.2s" }}>
-                            {task.is_completed && <Check size={14} color="#fff" strokeWidth={3} />}
-                          </div>
-                          <span style={{ fontSize: 14, color: task.is_completed ? "#94a3b8" : "#0f172a", textDecoration: task.is_completed ? "line-through" : "none", fontWeight: 500, transition: "all 0.2s" }}>{task.task_name}</span>
+                          <input 
+                            type="checkbox" 
+                            checked={task.is_completed} 
+                            onChange={() => toggleTask(task.id, task.is_completed)} 
+                            className="w-5 h-5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer accent-emerald-600" 
+                            aria-label={task.task_name}
+                          />
+                          <span style={{ fontSize: 14, color: task.is_completed ? "#475569" : "#0f172a", textDecoration: task.is_completed ? "line-through" : "none", fontWeight: 500, transition: "all 0.2s" }}>{task.task_name}</span>
                         </label>
-                        {isAdmin && <button className="hide-on-print" onClick={() => deleteTask(task.id)} style={{ background: "none", border: "none", color: "#ef4444", cursor: "pointer", padding: 4 }}><Trash2 size={14} /></button>}
+                        {isAdmin && <button aria-label="Xóa công việc" className="hide-on-print" onClick={() => deleteTask(task.id)} style={{ background: "none", border: "none", color: "#ef4444", cursor: "pointer", padding: 4 }}><Trash2 size={14} /></button>}
                       </div>
                     ))}
                   </div>
                   
                   <div className="hide-on-print" style={{ display: "flex", gap: 8 }}>
-                    <input type="text" value={newTask} onChange={e=>setNewTask(e.target.value)} onKeyDown={e=>e.key==="Enter"&&handleAddTask()} placeholder="Thêm công việc mới..." style={{ flex: 1, padding: "8px 12px", fontSize: 13, border: "1.5px solid #e2e8f0", borderRadius: 8, outline: "none", transition: "border-color .15s" }} onFocus={e=>e.target.style.borderColor="#1d4ed8"} onBlur={e=>e.target.style.borderColor="#e2e8f0"} />
-                    <button onClick={handleAddTask} disabled={addingTask || !newTask.trim()} style={{ background: "#1d4ed8", color: "#fff", border: "none", borderRadius: 8, padding: "0 16px", fontWeight: 600, fontSize: 13, cursor: "pointer" }}><Plus size={16}/></button>
+                    <input id="new-task" aria-label="Tên công việc mới" type="text" value={newTask} onChange={e=>setNewTask(e.target.value)} onKeyDown={e=>e.key==="Enter"&&handleAddTask()} placeholder="Thêm công việc mới..." style={{ flex: 1, padding: "8px 12px", fontSize: 13, border: "1.5px solid #e2e8f0", borderRadius: 8, outline: "none", transition: "border-color .15s" }} onFocus={e=>e.target.style.borderColor="#1d4ed8"} onBlur={e=>e.target.style.borderColor="#e2e8f0"} />
+                    <button onClick={handleAddTask} disabled={addingTask || !newTask.trim()} style={{ background: (addingTask || !newTask.trim()) ? "#cbd5e1" : "#1d4ed8", color: (addingTask || !newTask.trim()) ? "#64748b" : "#fff", border: "none", borderRadius: 8, padding: "0 16px", fontWeight: 600, fontSize: 13, cursor: (addingTask || !newTask.trim()) ? "not-allowed" : "pointer" }}><Plus size={16}/></button>
                   </div>
                 </div>
               </>
@@ -525,21 +526,21 @@ export default function ProjectDetail({ params }: { params: Promise<{ id: string
               <label style={{ background: "#eff6ff", border: "1px solid #bfdbfe", color: "#1d4ed8", padding: "6px 12px", borderRadius: 8, fontSize: 12, fontWeight: 600, display: "flex", alignItems: "center", gap: 6, cursor: uploading ? "not-allowed" : "pointer" }}>
                 {uploading ? <Loader2 size={14} className="animate-spin"/> : <UploadCloud size={14} />}
                 {uploading ? "Đang tải..." : "Tải lên"}
-                <input type="file" style={{ display: "none" }} onChange={handleUpload} disabled={uploading} />
+                <input type="file" aria-label="Tải lên tài liệu đính kèm" style={{ display: "none" }} onChange={handleUpload} disabled={uploading} />
               </label>
             </div>
             <div style={{ padding: "20px" }}>
-              {files.length === 0 ? <div style={{ textAlign: "center", color: "#94a3b8", fontSize: 13, padding: "10px 0" }}>Chưa có tài liệu</div> : (
+              {files.length === 0 ? <div style={{ textAlign: "center", color: "#475569", fontSize: 13, padding: "10px 0" }}>Chưa có tài liệu</div> : (
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   {files.map(f => (
                     <div key={f.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 8 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                         <FileText size={16} color="#64748b" />
-                        <div><div style={{ fontSize: 13, fontWeight: 600, color: "#0f172a" }}>{f.name}</div><div style={{ fontSize: 11, color: "#94a3b8" }}>{formatBytes(f.metadata?.size || 0)}</div></div>
+                        <div><div style={{ fontSize: 13, fontWeight: 600, color: "#0f172a" }}>{f.name}</div><div style={{ fontSize: 11, color: "#475569" }}>{formatBytes(f.metadata?.size || 0)}</div></div>
                       </div>
                       <div style={{ display: "flex", gap: 8 }}>
-                        <button onClick={() => handleDownload(f.name)} style={actionBtnStyle("#f0fdf4", "#bbf7d0", "#166534")}><Download size={14}/></button>
-                        {isAdmin && <button onClick={() => handleDeleteFile(f.name)} style={actionBtnStyle("#fff1f2", "#fecdd3", "#e11d48")}><Trash2 size={14}/></button>}
+                        <button aria-label={`Tải tài liệu ${f.name}`} onClick={() => handleDownload(f.name)} style={actionBtnStyle("#f0fdf4", "#bbf7d0", "#166534")}><Download size={14}/></button>
+                        {isAdmin && <button aria-label={`Xóa tài liệu ${f.name}`} onClick={() => handleDeleteFile(f.name)} style={actionBtnStyle("#fff1f2", "#fecdd3", "#e11d48")}><Trash2 size={14}/></button>}
                       </div>
                     </div>
                   ))}
@@ -559,20 +560,20 @@ export default function ProjectDetail({ params }: { params: Promise<{ id: string
             <h2 style={{ fontSize: 16, fontWeight: 700, color: "#0f172a", margin: 0 }}>Nhật ký xử lý</h2>
           </div>
           <div style={{ flex: 1, overflowY: "auto", padding: "20px", background: "#f8fafc" }} className="print-bg-white print-overflow-visible">
-            {notes.length === 0 ? <div style={{ textAlign: "center", color: "#94a3b8", fontSize: 13, marginTop: 40 }}>Chưa có ghi chú nào.</div> : (
+            {notes.length === 0 ? <div style={{ textAlign: "center", color: "#475569", fontSize: 13, marginTop: 40 }}>Chưa có ghi chú nào.</div> : (
               <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
                 {notes.map(note => (
                   <div key={note.id} style={{ background: "#fff", padding: "16px", borderRadius: 12, border: "1px solid #e2e8f0", boxShadow: "0 1px 2px rgba(0,0,0,0.02)" }}>
                     <div style={{ fontSize: 14, color: "#334155", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>{note.note_content}</div>
-                    <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 10, display: "flex", alignItems: "center", gap: 4 }}><Clock size={12} /> {formatDateTime(note.created_at)}</div>
+                    <div style={{ fontSize: 11, color: "#475569", marginTop: 10, display: "flex", alignItems: "center", gap: 4 }}><Clock size={12} /> {formatDateTime(note.created_at)}</div>
                   </div>
                 ))}
               </div>
             )}
           </div>
           <div className="hide-on-print" style={{ padding: "16px", borderTop: "1px solid #f1f5f9", background: "#fff" }}>
-            <textarea value={newNote} onChange={e => setNewNote(e.target.value)} placeholder="Nhập nội dung công việc..." style={{ width: "100%", height: 80, padding: "12px", fontSize: 13, border: "1.5px solid #e2e8f0", borderRadius: 8, outline: "none", resize: "none", marginBottom: 12, fontFamily: "inherit" }} onFocus={e => e.target.style.borderColor = "#1d4ed8"} onBlur={e => e.target.style.borderColor = "#e2e8f0"} />
-            <button onClick={handleAddNote} disabled={addingNote || !newNote.trim()} style={{ width: "100%", padding: "10px 0", fontSize: 13, fontWeight: 700, color: "#fff", border: "none", borderRadius: 8, background: (addingNote || !newNote.trim()) ? "#93c5fd" : "#1d4ed8", cursor: (addingNote || !newNote.trim()) ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, transition: "background .15s" }}>
+            <textarea id="new-note" aria-label="Nội dung ghi chú" value={newNote} onChange={e => setNewNote(e.target.value)} placeholder="Nhập nội dung công việc..." style={{ width: "100%", height: 80, padding: "12px", fontSize: 13, border: "1.5px solid #e2e8f0", borderRadius: 8, outline: "none", resize: "none", marginBottom: 12, fontFamily: "inherit" }} onFocus={e => e.target.style.borderColor = "#1d4ed8"} onBlur={e => e.target.style.borderColor = "#e2e8f0"} />
+            <button onClick={handleAddNote} disabled={addingNote || !newNote.trim()} style={{ width: "100%", padding: "10px 0", fontSize: 13, fontWeight: 700, color: (addingNote || !newNote.trim()) ? "#64748b" : "#fff", border: "none", borderRadius: 8, background: (addingNote || !newNote.trim()) ? "#cbd5e1" : "#1d4ed8", cursor: (addingNote || !newNote.trim()) ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, transition: "background .15s" }}>
               <Plus size={16} /> Thêm ghi chú
             </button>
           </div>
@@ -635,9 +636,9 @@ export default function ProjectDetail({ params }: { params: Promise<{ id: string
             .show-on-print { display: block !important; }
             
             .print-main { 
-              display: block !important; 
-              padding: 0 !important; 
-              margin-top: 20px !important;
+               display: block !important; 
+               padding: 0 !important; 
+               margin-top: 20px !important;
             }
             
             .print-left, .print-right {
@@ -665,29 +666,29 @@ export default function ProjectDetail({ params }: { params: Promise<{ id: string
             
             <div className="flex justify-between items-center border-b border-slate-100 dark:border-slate-700 pb-3">
               <span className="text-lg font-bold text-slate-900 dark:text-slate-100 font-sans">Chỉnh sửa hồ sơ</span>
-              <button onClick={() => setIsEditModalOpen(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors">
+              <button aria-label="Đóng" onClick={() => setIsEditModalOpen(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors">
                 <X size={20} />
               </button>
             </div>
             
             <div className="flex flex-col gap-3 max-h-[60vh] overflow-y-auto pr-1">
-              <div><label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1">Tên KH *</label><input type="text" placeholder="CÔNG TY..." value={tenKhach} onChange={e=>setTenKhach(e.target.value)} className="w-full px-3 py-2 bg-transparent border border-slate-300 dark:border-slate-600 rounded-lg text-sm outline-none focus:border-blue-500 transition-colors dark:text-slate-100" /></div>
-              <div><label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1">Số điện thoại</label><input type="text" placeholder="090..." value={soDienThoai} onChange={e=>setSoDienThoai(e.target.value)} className="w-full px-3 py-2 bg-transparent border border-slate-300 dark:border-slate-600 rounded-lg text-sm outline-none focus:border-blue-500 transition-colors dark:text-slate-100" /></div>
-              <div><label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1">Dịch vụ</label><input type="text" placeholder="Loại..." value={dichVu} onChange={e=>setDichVu(e.target.value)} className="w-full px-3 py-2 bg-transparent border border-slate-300 dark:border-slate-600 rounded-lg text-sm outline-none focus:border-blue-500 transition-colors dark:text-slate-100" /></div>
-              <div><label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1">Người GT</label><input type="text" placeholder="Tên..." value={nguoiGioiThieu} onChange={e=>setNguoiGioiThieu(e.target.value)} className="w-full px-3 py-2 bg-transparent border border-slate-300 dark:border-slate-600 rounded-lg text-sm outline-none focus:border-blue-500 transition-colors dark:text-slate-100" /></div>
-              <div><label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1">Giá trị (đ)</label><input type="number" placeholder="1000000" value={soTien} onChange={e=>setSoTien(e.target.value)} className="w-full px-3 py-2 bg-transparent border border-slate-300 dark:border-slate-600 rounded-lg text-sm outline-none focus:border-blue-500 transition-colors dark:text-slate-100" /></div>
-              <div><label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1">Hạn chót</label><input type="date" value={hanChot} onChange={e=>setHanChot(e.target.value)} className="w-full px-3 py-2 bg-transparent border border-slate-300 dark:border-slate-600 rounded-lg text-sm outline-none focus:border-blue-500 transition-colors dark:text-slate-100" /></div>
+              <div><label htmlFor="edit-ten" className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1">Tên KH *</label><input id="edit-ten" type="text" placeholder="CÔNG TY..." value={tenKhach} onChange={e=>setTenKhach(e.target.value)} className="w-full px-3 py-2 bg-transparent border border-slate-300 dark:border-slate-600 rounded-lg text-sm outline-none focus:border-blue-500 transition-colors dark:text-slate-100" /></div>
+              <div><label htmlFor="edit-phone" className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1">Số điện thoại</label><input id="edit-phone" type="text" placeholder="090..." value={soDienThoai} onChange={e=>setSoDienThoai(e.target.value)} className="w-full px-3 py-2 bg-transparent border border-slate-300 dark:border-slate-600 rounded-lg text-sm outline-none focus:border-blue-500 transition-colors dark:text-slate-100" /></div>
+              <div><label htmlFor="edit-service" className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1">Dịch vụ</label><input id="edit-service" type="text" placeholder="Loại..." value={dichVu} onChange={e=>setDichVu(e.target.value)} className="w-full px-3 py-2 bg-transparent border border-slate-300 dark:border-slate-600 rounded-lg text-sm outline-none focus:border-blue-500 transition-colors dark:text-slate-100" /></div>
+              <div><label htmlFor="edit-partner" className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1">Người GT</label><input id="edit-partner" type="text" placeholder="Tên..." value={nguoiGioiThieu} onChange={e=>setNguoiGioiThieu(e.target.value)} className="w-full px-3 py-2 bg-transparent border border-slate-300 dark:border-slate-600 rounded-lg text-sm outline-none focus:border-blue-500 transition-colors dark:text-slate-100" /></div>
+              <div><label htmlFor="edit-amount" className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1">Giá trị (đ)</label><input id="edit-amount" type="number" placeholder="1000000" value={soTien} onChange={e=>setSoTien(e.target.value)} className="w-full px-3 py-2 bg-transparent border border-slate-300 dark:border-slate-600 rounded-lg text-sm outline-none focus:border-blue-500 transition-colors dark:text-slate-100" /></div>
+              <div><label htmlFor="edit-duedate" className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1">Hạn chót</label><input id="edit-duedate" type="date" value={hanChot} onChange={e=>setHanChot(e.target.value)} className="w-full px-3 py-2 bg-transparent border border-slate-300 dark:border-slate-600 rounded-lg text-sm outline-none focus:border-blue-500 transition-colors dark:text-slate-100" /></div>
               <div>
-                <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1">Ưu tiên</label>
-                <select value={doUuTien} onChange={e=>setDoUuTien(e.target.value)} className="w-full px-3 py-2 bg-transparent border border-slate-300 dark:border-slate-600 rounded-lg text-sm outline-none focus:border-blue-500 transition-colors dark:text-slate-100 [&>option]:bg-white dark:[&>option]:bg-slate-800">
+                <label htmlFor="edit-priority" className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1">Ưu tiên</label>
+                <select id="edit-priority" value={doUuTien} onChange={e=>setDoUuTien(e.target.value)} className="w-full px-3 py-2 bg-transparent border border-slate-300 dark:border-slate-600 rounded-lg text-sm outline-none focus:border-blue-500 transition-colors dark:text-slate-100 [&>option]:bg-white dark:[&>option]:bg-slate-800">
                   <option value="Thường">Thường (Xanh)</option>
                   <option value="Trung bình">Trung bình (Vàng)</option>
                   <option value="Gấp">Gấp (Đỏ)</option>
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1">Trạng thái</label>
-                <select value={trangThai} onChange={e=>setTrangThai(e.target.value)} className="w-full px-3 py-2 bg-transparent border border-slate-300 dark:border-slate-600 rounded-lg text-sm outline-none focus:border-blue-500 transition-colors dark:text-slate-100 [&>option]:bg-white dark:[&>option]:bg-slate-800">
+                <label htmlFor="edit-status" className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1">Trạng thái</label>
+                <select id="edit-status" value={trangThai} onChange={e=>setTrangThai(e.target.value)} className="w-full px-3 py-2 bg-transparent border border-slate-300 dark:border-slate-600 rounded-lg text-sm outline-none focus:border-blue-500 transition-colors dark:text-slate-100 [&>option]:bg-white dark:[&>option]:bg-slate-800">
                   <option value="Đang chờ">Đang chờ</option>
                   <option value="Đang làm">Đang làm</option>
                   <option value="Cần bổ sung">Cần bổ sung</option>
@@ -698,7 +699,7 @@ export default function ProjectDetail({ params }: { params: Promise<{ id: string
 
             <div className="flex justify-end gap-3 mt-2">
               <button onClick={() => setIsEditModalOpen(false)} className="px-4 py-2 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-semibold text-sm rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors">Hủy</button>
-              <button onClick={handleEdit} disabled={savingEdit} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm rounded-lg disabled:opacity-50 transition-colors">
+              <button onClick={handleEdit} disabled={savingEdit} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm rounded-lg disabled:bg-slate-200 disabled:text-slate-500 dark:disabled:bg-slate-700 dark:disabled:text-slate-400 transition-colors">
                 {savingEdit ? "Đang lưu..." : "Lưu thay đổi"}
               </button>
             </div>
@@ -711,9 +712,9 @@ export default function ProjectDetail({ params }: { params: Promise<{ id: string
 
 const InfoItem = ({ icon: Icon, label, value, isMoney = false }: any) => (
   <div style={{ display: "flex", gap: 12 }}>
-    <div style={{ background: isMoney ? "#f0fdf4" : "#f8fafc", width: 40, height: 40, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", color: isMoney ? "#15803d" : "#64748b" }}><Icon size={20}/></div>
+    <div style={{ background: isMoney ? "#f0fdf4" : "#f8fafc", width: 40, height: 40, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", color: isMoney ? "#15803d" : "#475569" }}><Icon size={20}/></div>
     <div>
-      <div style={{ fontSize: 12, color: "#64748b", fontWeight: 600, textTransform: "uppercase" }}>{label}</div>
+      <div style={{ fontSize: 12, color: "#475569", fontWeight: 600, textTransform: "uppercase" }}>{label}</div>
       <div style={{ fontSize: 15, color: isMoney ? "#059669" : "#0f172a", fontWeight: isMoney ? 700 : 500, marginTop: 2 }}>{value ?? "—"}</div>
     </div>
   </div>

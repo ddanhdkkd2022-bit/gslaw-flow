@@ -87,7 +87,7 @@ export default function TrackingPage({ params }: { params: Promise<{ share_token
             <Scale size={32} color="#dc2626" />
           </div>
           <h1 style={{ fontSize: 20, fontWeight: 700, color: "#0f172a", marginBottom: 8 }}>Lỗi truy cập</h1>
-          <p style={{ color: "#64748b", fontSize: 14, lineHeight: 1.6 }}>{error}</p>
+          <p style={{ color: "#475569", fontSize: 14, lineHeight: 1.6 }}>{error}</p>
         </div>
       </div>
     );
@@ -107,7 +107,7 @@ export default function TrackingPage({ params }: { params: Promise<{ share_token
         </div>
         <div style={{ display: "flex", flexDirection: "column" }}>
           <span style={{ fontSize: 16, fontWeight: 800, color: "#1e3a8a", letterSpacing: ".5px" }}>GSLaw Tracking</span>
-          <span style={{ fontSize: 11, color: "#64748b", fontWeight: 500 }}>CỔNG THEO DÕI HỒ SƠ</span>
+          <span style={{ fontSize: 11, color: "#475569", fontWeight: 500 }}>CỔNG THEO DÕI HỒ SƠ</span>
         </div>
       </header>
 
@@ -116,7 +116,7 @@ export default function TrackingPage({ params }: { params: Promise<{ share_token
         {/* THÔNG TIN HỒ SƠ */}
         <div style={{ background: "#fff", borderRadius: 16, border: "1px solid #e2e8f0", boxShadow: "0 4px 6px -1px rgba(0,0,0,.05)", overflow: "hidden" }}>
           <div style={{ padding: "24px 32px", borderBottom: "1px solid #f1f5f9", background: "linear-gradient(to right, #ffffff, #f8fafc)" }}>
-            <div style={{ fontSize: 13, fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "1px", marginBottom: 8 }}>Thông tin Khách hàng</div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: "#475569", textTransform: "uppercase", letterSpacing: "1px", marginBottom: 8 }}>Thông tin Khách hàng</div>
             <h1 style={{ fontSize: 26, fontWeight: 800, color: "#0f172a", margin: "0 0 16px 0" }}>{project.customer_name}</h1>
             
             <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
@@ -130,16 +130,16 @@ export default function TrackingPage({ params }: { params: Promise<{ share_token
 
           <div style={{ padding: "24px 32px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
             <div style={{ display: "flex", gap: 12 }}>
-              <div style={{ background: "#f8fafc", width: 40, height: 40, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", color: "#64748b" }}><Briefcase size={20}/></div>
+              <div style={{ background: "#f8fafc", width: 40, height: 40, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", color: "#475569" }}><Briefcase size={20}/></div>
               <div>
-                <div style={{ fontSize: 12, color: "#64748b", fontWeight: 600, textTransform: "uppercase" }}>Dịch vụ</div>
+                <div style={{ fontSize: 12, color: "#475569", fontWeight: 600, textTransform: "uppercase" }}>Dịch vụ</div>
                 <div style={{ fontSize: 15, color: "#0f172a", fontWeight: 600, marginTop: 4 }}>{project.service_type ?? "—"}</div>
               </div>
             </div>
             <div style={{ display: "flex", gap: 12 }}>
-              <div style={{ background: "#f8fafc", width: 40, height: 40, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", color: "#64748b" }}><Calendar size={20}/></div>
+              <div style={{ background: "#f8fafc", width: 40, height: 40, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", color: "#475569" }}><Calendar size={20}/></div>
               <div>
-                <div style={{ fontSize: 12, color: "#64748b", fontWeight: 600, textTransform: "uppercase" }}>Ngày tiếp nhận</div>
+                <div style={{ fontSize: 12, color: "#475569", fontWeight: 600, textTransform: "uppercase" }}>Ngày tiếp nhận</div>
                 <div style={{ fontSize: 15, color: "#0f172a", fontWeight: 600, marginTop: 4 }}>{project.created_at ? formatDateTime(project.created_at).split(" - ")[1] : "—"}</div>
               </div>
             </div>
@@ -154,7 +154,7 @@ export default function TrackingPage({ params }: { params: Promise<{ share_token
           
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             {notes.length === 0 ? (
-              <div style={{ background: "#fff", borderRadius: 16, border: "1px dashed #cbd5e1", padding: 40, textAlign: "center", color: "#64748b", fontSize: 14 }}>
+              <div style={{ background: "#fff", borderRadius: 16, border: "1px dashed #cbd5e1", padding: 40, textAlign: "center", color: "#475569", fontSize: 14 }}>
                 Chưa có cập nhật nào cho hồ sơ này.
               </div>
             ) : (
@@ -168,7 +168,7 @@ export default function TrackingPage({ params }: { params: Promise<{ share_token
                   
                   {/* Card */}
                   <div style={{ background: "#fff", padding: "16px 20px", borderRadius: 16, border: "1px solid #e2e8f0", boxShadow: "0 2px 4px rgba(0,0,0,0.02)", flex: 1, marginBottom: idx < notes.length - 1 ? 0 : 20 }}>
-                    <div style={{ fontSize: 12, color: "#64748b", display: "flex", alignItems: "center", gap: 6, marginBottom: 8, fontWeight: 500 }}>
+                    <div style={{ fontSize: 12, color: "#475569", display: "flex", alignItems: "center", gap: 6, marginBottom: 8, fontWeight: 500 }}>
                       <Clock size={14} /> {formatDateTime(note.created_at)}
                     </div>
                     <div style={{ fontSize: 14, color: "#1e293b", lineHeight: 1.6, whiteSpace: "pre-wrap", fontWeight: 500 }}>
@@ -181,7 +181,7 @@ export default function TrackingPage({ params }: { params: Promise<{ share_token
           </div>
         </div>
 
-        <div style={{ textAlign: "center", marginTop: 20, fontSize: 13, color: "#94a3b8" }}>
+        <div style={{ textAlign: "center", marginTop: 20, fontSize: 13, color: "#475569" }}>
           Thông tin được cung cấp bảo mật bởi hệ thống GSLaw.
         </div>
 

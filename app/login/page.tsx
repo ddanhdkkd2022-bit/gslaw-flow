@@ -53,7 +53,7 @@ export default function Login() {
             <Scale size={28} color="#60a5fa" strokeWidth={2} />
           </div>
           <h1 style={{ fontSize: 24, fontWeight: 800, color: "#0f172a", margin: 0 }}>GSLaw Flow</h1>
-          <p style={{ fontSize: 14, color: "#64748b", marginTop: 4 }}>Hệ thống quản lý hồ sơ nội bộ</p>
+          <p style={{ fontSize: 14, color: "#475569", marginTop: 4 }}>Hệ thống quản lý hồ sơ nội bộ</p>
         </div>
 
         {/* Form Card */}
@@ -64,10 +64,11 @@ export default function Login() {
 
           <form onSubmit={handleAuth} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             <div>
-              <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#475569", marginBottom: 6 }}>Email</label>
+              <label htmlFor="login-email" style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#475569", marginBottom: 6 }}>Email</label>
               <div style={{ position: "relative" }}>
                 <Mail size={16} color="#94a3b8" style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)" }} />
                 <input
+                  id="login-email"
                   type="email"
                   required
                   value={email}
@@ -85,10 +86,11 @@ export default function Login() {
             </div>
 
             <div>
-              <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#475569", marginBottom: 6 }}>Mật khẩu</label>
+              <label htmlFor="login-password" style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#475569", marginBottom: 6 }}>Mật khẩu</label>
               <div style={{ position: "relative" }}>
                 <Lock size={16} color="#94a3b8" style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)" }} />
                 <input
+                  id="login-password"
                   type="password"
                   required
                   value={password}
@@ -110,8 +112,9 @@ export default function Login() {
               disabled={loading || !email || !password}
               style={{
                 width: "100%", padding: "12px", fontSize: 14, fontWeight: 600,
-                background: (loading || !email || !password) ? "#93c5fd" : "#1d4ed8",
-                color: "#fff", border: "none", borderRadius: 8, marginTop: 8,
+                background: (loading || !email || !password) ? "#cbd5e1" : "#1d4ed8",
+                color: (loading || !email || !password) ? "#64748b" : "#fff",
+                border: "none", borderRadius: 8, marginTop: 8,
                 cursor: (loading || !email || !password) ? "not-allowed" : "pointer",
                 display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
                 transition: "background .15s"
@@ -142,7 +145,7 @@ export default function Login() {
         </div>
         
         {/* Footer text */}
-        <div style={{ textAlign: "center", marginTop: 32, fontSize: 12, color: "#94a3b8" }}>
+        <div style={{ textAlign: "center", marginTop: 32, fontSize: 12, color: "#475569" }}>
           Bảo mật bởi Supabase Auth
         </div>
 

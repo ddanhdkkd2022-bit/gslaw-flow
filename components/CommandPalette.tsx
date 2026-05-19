@@ -71,6 +71,7 @@ export function CommandPalette() {
             placeholder="Tìm tên khách hàng hoặc SĐT..." 
             cmdk-input="" 
             autoFocus
+            aria-label="Tìm kiếm nhanh hồ sơ"
           />
         </div>
         
